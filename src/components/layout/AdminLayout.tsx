@@ -36,7 +36,7 @@ export function AdminLayout() {
         {/* Brand */}
         <div className='h-16 flex items-center px-6 border-b border-border'>
           <span className='font-semibold tracking-tight text-foreground'>
-            Photo OS
+            Aperture v1.0
           </span>
         </div>
 

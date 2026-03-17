@@ -28,28 +28,49 @@ export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
 export interface Booking {
   id: string;
-  clientId: string;
   clientName: string;
+  clientId?: string;
   sessionType: string;
   date: string;
+  time?: string;
   location?: string;
   status: BookingStatus;
-  depositPaid: boolean;
   totalAmount: number;
+  depositAmount: number;
+  depositPaid: boolean;
+  contractSigned: boolean;
+  shootId?: string;
   notes?: string;
 }
 
 // Shoots / Planner
+export interface ShotItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+export interface MoodBoardImage {
+  id: string;
+  url: string;
+  caption?: string;
+}
+
 export interface Shoot {
   id: string;
-  bookingId: string;
-  clientName: string;
+  title: string;
+  clientName?: string;
+  bookingId?: string;
   date: string;
-  shotList: string[];
-  moodBoardUrls: string[];
+  location?: string;
   locationNotes?: string;
-  gearKitIds: string[];
   status: 'planning' | 'ready' | 'completed';
+  completedAt?: string;
+  shotList: ShotItem[];
+  moodBoard: MoodBoardImage[];
+  gearKitIds: string[];
+  isStandalone: boolean;
+  notes?: string;
 }
 
 // Gear

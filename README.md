@@ -4,6 +4,18 @@ A full-stack photography business management application built with React, TypeS
 
 ---
 
+---
+
+## Screenshots
+
+![Aperture Portal Dashboard.](/src/assets/screenshots/screen-01.png 'Aperture Portal Dashboard.')
+![Aperture Portal Clients.](/src/assets/screenshots/screen-02.png 'Aperture Portal Clients.')
+![Aperture Portal Bookings.](/src/assets/screenshots/screen-03.png 'Aperture Portal Bookings.')
+![Aperture Portal Shoots.](/src/assets/screenshots/screen-04.png 'Aperture Portal Shoots.')
+![Aperture Portal Gear.](/src/assets/screenshots/screen-05.png 'Aperture Portal Gear.')
+
+---
+
 ## Features
 
 ### In progress
