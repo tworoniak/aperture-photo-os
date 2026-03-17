@@ -1,11 +1,12 @@
 // Re-export the real dashboard page
 export { DashboardPage } from '@/pages/admin/DashboardPage';
+export { ClientsPage } from '@/pages/admin/ClientsPage';
 
 // ─── Admin stubs (to be built out) ───────────────────────────────────────────
 
-export function ClientsPage() {
-  return <PageShell title='Clients' description='Manage leads and clients' />;
-}
+// export function ClientsPage() {
+//   return <PageShell title='Clients' description='Manage leads and clients' />;
+// }
 
 export function BookingsPage() {
   return <PageShell title='Bookings' description='Sessions and contracts' />;
