@@ -16,10 +16,11 @@ export interface Client {
   email: string;
   phone?: string;
   notes?: string;
+  status: 'lead' | 'active' | 'past';
   createdAt: string;
+  lastContact?: string;
   totalShoots: number;
   totalRevenue: number;
-  status: 'lead' | 'active' | 'past';
 }
 
 // Bookings
