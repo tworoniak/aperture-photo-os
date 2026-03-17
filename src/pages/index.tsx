@@ -1,6 +1,9 @@
 // Re-export the real dashboard page
 export { DashboardPage } from '@/pages/admin/DashboardPage';
 export { ClientsPage } from '@/pages/admin/ClientsPage';
+export { BookingsPage } from '@/pages/admin/BookingsPage';
+export { ShootsPage } from '@/pages/admin/ShootsPage';
+export { GearPage } from '@/pages/admin/GearPage';
 
 // ─── Admin stubs (to be built out) ───────────────────────────────────────────
 
@@ -8,17 +11,17 @@ export { ClientsPage } from '@/pages/admin/ClientsPage';
 //   return <PageShell title='Clients' description='Manage leads and clients' />;
 // }
 
-export function BookingsPage() {
-  return <PageShell title='Bookings' description='Sessions and contracts' />;
-}
+// export function BookingsPage() {
+//   return <PageShell title='Bookings' description='Sessions and contracts' />;
+// }
 
-export function ShootsPage() {
-  return <PageShell title='Shoots' description='Plan upcoming shoots' />;
-}
+// export function ShootsPage() {
+//   return <PageShell title='Shoots' description='Plan upcoming shoots' />;
+// }
 
-export function GearPage() {
-  return <PageShell title='Gear' description='Inventory and kit lists' />;
-}
+// export function GearPage() {
+//   return <PageShell title='Gear' description='Inventory and kit lists' />;
+// }
 
 export function PricingPage() {
   return <PageShell title='Pricing' description='Packages and quote builder' />;

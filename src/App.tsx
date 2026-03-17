@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { ClientLayout } from '@/components/layout/ClientLayout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { ShootDetailPage } from '@/pages/admin/ShootDetailPage';
 
 import {
   // Admin
@@ -43,6 +44,7 @@ export default function App() {
             <Route path='/clients' element={<ClientsPage />} />
             <Route path='/bookings' element={<BookingsPage />} />
             <Route path='/shoots' element={<ShootsPage />} />
+            <Route path='/shoots/:id' element={<ShootDetailPage />} />
             <Route path='/gear' element={<GearPage />} />
             <Route path='/pricing' element={<PricingPage />} />
             <Route path='/galleries' element={<GalleriesPage />} />
