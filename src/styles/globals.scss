@@ -2,6 +2,10 @@
 // Tailwind handles utilities — this file is for things Tailwind can't do cleanly:
 // masonry layouts, complex image hovers, custom animations, gallery grids.
 
+button {
+  cursor: pointer;
+}
+
 // ─── Gallery grid ────────────────────────────────────────────────────────────
 .gallery-masonry {
   columns: 2;
