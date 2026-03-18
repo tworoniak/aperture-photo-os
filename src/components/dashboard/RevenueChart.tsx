@@ -7,12 +7,8 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-// import type { TooltipProps } from 'recharts';
-import type {
-  //   NameType,
-  //   ValueType,
-  Payload,
-} from 'recharts/types/component/DefaultTooltipContent';
+
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { mockRevenueChart } from '@/lib/mock-data';
 
 interface TooltipData {
@@ -24,7 +20,7 @@ interface TooltipData {
 function CustomTooltip({ active, payload, label }: TooltipData) {
   if (!active || !payload?.length) return null;
   return (
-    <div className='rounded-lg border border-border bg-white dark:bg-zinc-950 px-3 py-2 shadow-sm'>
+    <div className='rounded-lg border border-border bg-background px-3 py-2 shadow-sm'>
       <p className='text-xs text-muted-foreground mb-0.5'>{label}</p>
       <p className='text-sm font-semibold text-foreground'>
         ${Number(payload[0].value).toLocaleString()}
