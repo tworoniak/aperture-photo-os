@@ -7,6 +7,7 @@ import type { ClientFormValues } from '@/lib/schemas/client-schema';
 import { ClientDialog } from '@/components/crm/ClientDialog';
 import { ClientProfileSheet } from '@/components/crm/ClientProfileSheet';
 import { DeleteClientDialog } from '@/components/crm/DeleteClientDialog';
+import { ClientCard } from '@/components/crm/ClientCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,12 +36,8 @@ import {
   UserRound,
 } from 'lucide-react';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type StatusFilter = 'all' | Client['status'];
 type SortKey = 'name' | 'revenue' | 'lastContact' | 'createdAt';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const statusStyles: Record<Client['status'], string> = {
   active: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
@@ -58,31 +55,22 @@ function getInitials(name: string) {
 }
 
 function newId() {
-  return `c${Date.now()}`;
+  return `c${crypto.randomUUID()}`;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function ClientsPage() {
   const [clients, setClients] = useState<Client[]>(mockClients);
-
-  // Search / filter / sort
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
-
-  // Dialog / sheet state
   const [addOpen, setAddOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [deleteClient, setDeleteClient] = useState<Client | null>(null);
   const [profileClient, setProfileClient] = useState<Client | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // ─── Derived list ──────────────────────────────────────────────────────────
-
   const filtered = useMemo(() => {
     let list = [...clients];
-
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -90,11 +78,8 @@ export function ClientsPage() {
           c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q),
       );
     }
-
-    if (statusFilter !== 'all') {
+    if (statusFilter !== 'all')
       list = list.filter((c) => c.status === statusFilter);
-    }
-
     list.sort((a, b) => {
       switch (sortKey) {
         case 'revenue':
@@ -103,16 +88,12 @@ export function ClientsPage() {
           return (b.lastContact ?? '').localeCompare(a.lastContact ?? '');
         case 'name':
           return a.name.localeCompare(b.name);
-        case 'createdAt':
         default:
           return b.createdAt.localeCompare(a.createdAt);
       }
     });
-
     return list;
   }, [clients, search, statusFilter, sortKey]);
-
-  // ─── Summary counts ────────────────────────────────────────────────────────
 
   const counts = useMemo(
     () => ({
@@ -123,8 +104,6 @@ export function ClientsPage() {
     }),
     [clients],
   );
-
-  // ─── Handlers ──────────────────────────────────────────────────────────────
 
   function handleAdd(values: ClientFormValues) {
     const newClient: Client = {
@@ -166,30 +145,32 @@ export function ClientsPage() {
     setEditClient(client);
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div className='flex-1 p-8 overflow-y-auto'>
-      <div className='max-w-6xl mx-auto space-y-6'>
+    <div className='flex-1 p-4 sm:p-8 overflow-y-auto'>
+      <div className='max-w-6xl mx-auto space-y-5'>
         {/* Header */}
         <div className='flex items-start justify-between gap-4'>
           <div>
-            <h1 className='text-2xl font-semibold tracking-tight text-foreground'>
+            <h1 className='text-xl sm:text-2xl font-semibold tracking-tight text-foreground'>
               Clients
             </h1>
-            <p className='text-muted-foreground mt-1'>
+            <p className='text-muted-foreground mt-1 text-sm'>
               {counts.active} active · {counts.lead} leads · {counts.past} past
             </p>
           </div>
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus className='w-4 h-4 mr-2' />
-            Add client
+          <Button
+            onClick={() => setAddOpen(true)}
+            size='sm'
+            className='sm:size-default'
+          >
+            <Plus className='w-4 h-4 sm:mr-2' />
+            <span className='hidden sm:inline'>Add client</span>
           </Button>
         </div>
 
         {/* Filters */}
         <div className='flex flex-col sm:flex-row gap-3'>
-          <div className='relative flex-1 max-w-sm'>
+          <div className='relative flex-1'>
             <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
             <Input
               placeholder='Search by name or email…'
@@ -198,40 +179,62 @@ export function ClientsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-          >
-            <SelectTrigger className='w-36'>
-              <SelectValue placeholder='Status' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>All ({counts.all})</SelectItem>
-              <SelectItem value='active'>Active ({counts.active})</SelectItem>
-              <SelectItem value='lead'>Lead ({counts.lead})</SelectItem>
-              <SelectItem value='past'>Past ({counts.past})</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={sortKey}
-            onValueChange={(v) => setSortKey(v as SortKey)}
-          >
-            <SelectTrigger className='w-44'>
-              <SelectValue placeholder='Sort by' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='createdAt'>Newest first</SelectItem>
-              <SelectItem value='revenue'>Highest revenue</SelectItem>
-              <SelectItem value='lastContact'>Last contact</SelectItem>
-              <SelectItem value='name'>Name A–Z</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className='flex gap-2'>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+            >
+              <SelectTrigger className='w-36'>
+                <SelectValue placeholder='Status' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='all'>All ({counts.all})</SelectItem>
+                <SelectItem value='active'>Active ({counts.active})</SelectItem>
+                <SelectItem value='lead'>Lead ({counts.lead})</SelectItem>
+                <SelectItem value='past'>Past ({counts.past})</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortKey}
+              onValueChange={(v) => setSortKey(v as SortKey)}
+            >
+              <SelectTrigger className='w-40'>
+                <SelectValue placeholder='Sort by' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='createdAt'>Newest first</SelectItem>
+                <SelectItem value='revenue'>Highest revenue</SelectItem>
+                <SelectItem value='lastContact'>Last contact</SelectItem>
+                <SelectItem value='name'>Name A–Z</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Table */}
-        <div className='rounded-xl border border-border bg-card overflow-hidden'>
+        {/* Mobile: card list */}
+        <div className='md:hidden space-y-2'>
+          {filtered.length === 0 ? (
+            <div className='flex flex-col items-center justify-center py-16 text-center rounded-xl border border-border'>
+              <UserRound className='w-8 h-8 text-muted-foreground/40 mb-3' />
+              <p className='text-sm font-medium text-foreground'>
+                No clients found
+              </p>
+            </div>
+          ) : (
+            filtered.map((client) => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                onView={openProfile}
+                onEdit={openEdit}
+                onDelete={setDeleteClient}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Desktop: table */}
+        <div className='hidden md:block rounded-xl border border-border bg-card overflow-hidden'>
           {filtered.length === 0 ? (
             <div className='flex flex-col items-center justify-center py-16 text-center'>
               <UserRound className='w-8 h-8 text-muted-foreground/40 mb-3' />
@@ -249,16 +252,16 @@ export function ClientsPage() {
                   <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
                     Client
                   </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell'>
+                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
                     Status
                   </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell'>
+                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell'>
                     Shoots
                   </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell'>
+                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
                     Revenue
                   </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell'>
+                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden xl:table-cell'>
                     Last contact
                   </th>
                   <th className='px-4 py-3 w-10' />
@@ -271,7 +274,6 @@ export function ClientsPage() {
                     className='hover:bg-muted/30 transition-colors cursor-pointer'
                     onClick={() => openProfile(client)}
                   >
-                    {/* Client name + email */}
                     <td className='px-4 py-3'>
                       <div className='flex items-center gap-3'>
                         <Avatar className='w-8 h-8 shrink-0'>
@@ -289,9 +291,7 @@ export function ClientsPage() {
                         </div>
                       </div>
                     </td>
-
-                    {/* Status */}
-                    <td className='px-4 py-3 hidden sm:table-cell'>
+                    <td className='px-4 py-3'>
                       <Badge
                         variant='outline'
                         className={cn(
@@ -302,33 +302,25 @@ export function ClientsPage() {
                         {client.status}
                       </Badge>
                     </td>
-
-                    {/* Shoots */}
-                    <td className='px-4 py-3 hidden md:table-cell'>
+                    <td className='px-4 py-3 hidden lg:table-cell'>
                       <span className='text-sm text-foreground'>
                         {client.totalShoots}
                       </span>
                     </td>
-
-                    {/* Revenue */}
-                    <td className='px-4 py-3 hidden md:table-cell'>
+                    <td className='px-4 py-3'>
                       <span className='text-sm text-foreground'>
                         {client.totalRevenue > 0
                           ? `$${client.totalRevenue.toLocaleString()}`
                           : '—'}
                       </span>
                     </td>
-
-                    {/* Last contact */}
-                    <td className='px-4 py-3 hidden lg:table-cell'>
+                    <td className='px-4 py-3 hidden xl:table-cell'>
                       <span className='text-sm text-muted-foreground'>
                         {client.lastContact
                           ? format(new Date(client.lastContact), 'MMM d, yyyy')
                           : '—'}
                       </span>
                     </td>
-
-                    {/* Actions menu */}
                     <td
                       className='px-4 py-3'
                       onClick={(e) => e.stopPropagation()}
@@ -377,13 +369,11 @@ export function ClientsPage() {
         )}
       </div>
 
-      {/* Dialogs & sheets */}
       <ClientDialog
         open={addOpen}
         onOpenChange={setAddOpen}
         onSubmit={handleAdd}
       />
-
       <ClientDialog
         open={!!editClient}
         onOpenChange={(open) => {
@@ -392,7 +382,6 @@ export function ClientsPage() {
         client={editClient}
         onSubmit={handleEdit}
       />
-
       <DeleteClientDialog
         client={deleteClient}
         open={!!deleteClient}
@@ -401,7 +390,6 @@ export function ClientsPage() {
         }}
         onConfirm={handleDelete}
       />
-
       <ClientProfileSheet
         client={profileClient}
         open={profileOpen}

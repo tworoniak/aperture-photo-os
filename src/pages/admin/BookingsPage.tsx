@@ -7,6 +7,7 @@ import type { BookingFormValues } from '@/lib/schemas/booking-schema';
 import { BookingDialog } from '@/components/bookings/BookingDialog';
 import { BookingCalendar } from '@/components/bookings/BookingCalendar';
 import { BookingList } from '@/components/bookings/BookingList';
+import { BookingCard } from '@/components/bookings/BookingCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -31,7 +32,7 @@ type StatusFilter = 'all' | Booking['status'];
 type ViewMode = 'calendar' | 'list';
 
 function newId() {
-  return `b${Date.now()}`;
+  return `b${crypto.randomUUID()}`;
 }
 
 export function BookingsPage() {
@@ -44,8 +45,6 @@ export function BookingsPage() {
   const [deleteBooking, setDeleteBooking] = useState<Booking | null>(null);
   const [linkBooking, setLinkBooking] = useState<Booking | null>(null);
 
-  // ─── Derived ────────────────────────────────────────────────────────────────
-
   const filtered = useMemo(() => {
     let list = [...bookings];
     if (search.trim()) {
@@ -57,9 +56,8 @@ export function BookingsPage() {
           b.location?.toLowerCase().includes(q),
       );
     }
-    if (statusFilter !== 'all') {
+    if (statusFilter !== 'all')
       list = list.filter((b) => b.status === statusFilter);
-    }
     list.sort((a, b) => a.date.localeCompare(b.date));
     return list;
   }, [bookings, search, statusFilter]);
@@ -68,20 +66,14 @@ export function BookingsPage() {
     const upcoming = bookings.filter(
       (b) => b.status === 'confirmed' || b.status === 'pending',
     );
-    const revenue = bookings
-      .filter((b) => b.status === 'completed')
-      .reduce((sum, b) => sum + b.totalAmount, 0);
     const pendingDeposits = bookings.filter(
       (b) => !b.depositPaid && b.status !== 'cancelled',
     ).length;
-    return { upcoming: upcoming.length, revenue, pendingDeposits };
+    return { upcoming: upcoming.length, pendingDeposits };
   }, [bookings]);
 
-  // ─── Handlers ───────────────────────────────────────────────────────────────
-
   function handleAdd(values: BookingFormValues) {
-    const newBooking: Booking = { ...values, id: newId() };
-    setBookings((prev) => [newBooking, ...prev]);
+    setBookings((prev) => [{ ...values, id: newId() }, ...prev]);
     setAddOpen(false);
     toast.success(`Booking for ${values.clientName} added`);
   }
@@ -128,18 +120,16 @@ export function BookingsPage() {
     setLinkBooking(null);
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className='flex-1 p-8 overflow-y-auto'>
-      <div className='max-w-6xl mx-auto space-y-6'>
+    <div className='flex-1 p-4 sm:p-8 overflow-y-auto'>
+      <div className='max-w-6xl mx-auto space-y-5'>
         {/* Header */}
         <div className='flex items-start justify-between gap-4'>
           <div>
-            <h1 className='text-2xl font-semibold tracking-tight text-foreground'>
+            <h1 className='text-xl sm:text-2xl font-semibold tracking-tight text-foreground'>
               Bookings
             </h1>
-            <p className='text-muted-foreground mt-1'>
+            <p className='text-muted-foreground mt-1 text-sm'>
               {stats.upcoming} upcoming
               {stats.pendingDeposits > 0 && (
                 <span className='text-amber-500 ml-2'>
@@ -149,15 +139,19 @@ export function BookingsPage() {
               )}
             </p>
           </div>
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus className='w-4 h-4 mr-2' />
-            New booking
+          <Button
+            onClick={() => setAddOpen(true)}
+            size='sm'
+            className='sm:size-default'
+          >
+            <Plus className='w-4 h-4 sm:mr-2' />
+            <span className='hidden sm:inline'>New booking</span>
           </Button>
         </div>
 
-        {/* Filters + view toggle */}
+        {/* Filters */}
         <div className='flex flex-col sm:flex-row gap-3'>
-          <div className='relative flex-1 max-w-sm'>
+          <div className='relative flex-1'>
             <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
             <Input
               placeholder='Search bookings…'
@@ -166,84 +160,106 @@ export function BookingsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-          >
-            <SelectTrigger className='w-40'>
-              <SelectValue placeholder='Status' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>All bookings</SelectItem>
-              <SelectItem value='confirmed'>Confirmed</SelectItem>
-              <SelectItem value='pending'>Pending</SelectItem>
-              <SelectItem value='completed'>Completed</SelectItem>
-              <SelectItem value='cancelled'>Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* View toggle */}
-          <div className='flex rounded-md border border-border overflow-hidden shrink-0'>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-xs transition-colors',
-                viewMode === 'list'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+          <div className='flex gap-2'>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
             >
-              <LayoutList className='w-3.5 h-3.5' />
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-xs border-l border-border transition-colors',
-                viewMode === 'calendar'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <CalendarDays className='w-3.5 h-3.5' />
-              Calendar
-            </button>
+              <SelectTrigger className='w-36'>
+                <SelectValue placeholder='Status' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='all'>All bookings</SelectItem>
+                <SelectItem value='confirmed'>Confirmed</SelectItem>
+                <SelectItem value='pending'>Pending</SelectItem>
+                <SelectItem value='completed'>Completed</SelectItem>
+                <SelectItem value='cancelled'>Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* View toggle — desktop only */}
+            <div className='hidden sm:flex rounded-md border border-border overflow-hidden shrink-0'>
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 text-xs transition-colors',
+                  viewMode === 'list'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <LayoutList className='w-3.5 h-3.5' />
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 text-xs border-l border-border transition-colors',
+                  viewMode === 'calendar'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <CalendarDays className='w-3.5 h-3.5' />
+                Calendar
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Content */}
-        {viewMode === 'calendar' ? (
-          <BookingCalendar
-            bookings={filtered}
-            onBookingClick={setEditBooking}
-          />
-        ) : (
-          <BookingList
-            bookings={filtered}
-            onEdit={setEditBooking}
-            onDelete={setDeleteBooking}
-            onMarkDepositPaid={handleMarkDepositPaid}
-            onCancel={handleCancel}
-            onLinkShoot={setLinkBooking}
-          />
-        )}
+        {/* Mobile: card list (always) */}
+        <div className='sm:hidden space-y-3'>
+          {filtered.length === 0 ? (
+            <div className='rounded-xl border border-border flex flex-col items-center justify-center py-16 text-center'>
+              <p className='text-sm font-medium text-foreground'>
+                No bookings found
+              </p>
+            </div>
+          ) : (
+            filtered.map((booking) => (
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                onEdit={setEditBooking}
+                onDelete={setDeleteBooking}
+                onMarkDepositPaid={handleMarkDepositPaid}
+                onCancel={handleCancel}
+                onLinkShoot={setLinkBooking}
+              />
+            ))
+          )}
+        </div>
 
-        {viewMode === 'list' && filtered.length > 0 && (
+        {/* Desktop: calendar or table */}
+        <div className='hidden sm:block'>
+          {viewMode === 'calendar' ? (
+            <BookingCalendar
+              bookings={filtered}
+              onBookingClick={setEditBooking}
+            />
+          ) : (
+            <BookingList
+              bookings={filtered}
+              onEdit={setEditBooking}
+              onDelete={setDeleteBooking}
+              onMarkDepositPaid={handleMarkDepositPaid}
+              onCancel={handleCancel}
+              onLinkShoot={setLinkBooking}
+            />
+          )}
+        </div>
+
+        {filtered.length > 0 && (
           <p className='text-xs text-muted-foreground text-right'>
             Showing {filtered.length} of {bookings.length} bookings
           </p>
         )}
       </div>
 
-      {/* Add dialog */}
       <BookingDialog
         open={addOpen}
         onOpenChange={setAddOpen}
         onSubmit={handleAdd}
       />
-
-      {/* Edit dialog */}
       <BookingDialog
         open={!!editBooking}
         onOpenChange={(open) => {
@@ -253,7 +269,6 @@ export function BookingsPage() {
         onSubmit={handleEdit}
       />
 
-      {/* Delete confirmation */}
       <Dialog
         open={!!deleteBooking}
         onOpenChange={(open) => {
@@ -268,7 +283,7 @@ export function BookingsPage() {
               <span className='font-medium text-foreground'>
                 {deleteBooking?.clientName}
               </span>
-              ? This cannot be undone.
+              ?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className='gap-2'>
@@ -282,7 +297,6 @@ export function BookingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Link to shoot dialog */}
       <Dialog
         open={!!linkBooking}
         onOpenChange={(open) => {
