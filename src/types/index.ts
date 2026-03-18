@@ -89,19 +89,40 @@ export interface GearItem {
 }
 
 // Pricing
-export interface PricingPackage {
-  id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  includes: string[];
-  addOns: PricingAddOn[];
-}
-
 export interface PricingAddOn {
   id: string;
   label: string;
   price: number;
+  description?: string;
+}
+
+export interface PricingPackage {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  basePrice: number;
+  includes: string[];
+  addOns: PricingAddOn[];
+  popular?: boolean;
+}
+
+export interface QuoteLineItem {
+  id: string;
+  label: string;
+  amount: number;
+  type: 'package' | 'addon' | 'custom' | 'discount';
+}
+
+export interface Quote {
+  id: string;
+  clientName: string;
+  packageId?: string;
+  lineItems: QuoteLineItem[];
+  discountCode?: string;
+  discountAmount: number;
+  notes?: string;
+  createdAt: string;
 }
 
 // Gallery / Proofing

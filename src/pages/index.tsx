@@ -4,6 +4,7 @@ export { ClientsPage } from '@/pages/admin/ClientsPage';
 export { BookingsPage } from '@/pages/admin/BookingsPage';
 export { ShootsPage } from '@/pages/admin/ShootsPage';
 export { GearPage } from '@/pages/admin/GearPage';
+export { PricingPage } from '@/pages/admin/PricingPage';
 
 // ─── Admin stubs (to be built out) ───────────────────────────────────────────
 
@@ -23,9 +24,9 @@ export { GearPage } from '@/pages/admin/GearPage';
 //   return <PageShell title='Gear' description='Inventory and kit lists' />;
 // }
 
-export function PricingPage() {
-  return <PageShell title='Pricing' description='Packages and quote builder' />;
-}
+// export function PricingPage() {
+//   return <PageShell title='Pricing' description='Packages and quote builder' />;
+// }
 
 export function GalleriesPage() {
   return (
