@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+/* @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/figtree';
@@ -15,4 +15,327 @@
 
 @utility section-title {
   @apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
+} */
+
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+}
+
+/* ─── Fonts ──────────────────────────────────────────────────────────────────
+   DM Sans — geometric, refined, excellent at small sizes
+   ─────────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
+/* ─── Theme tokens ───────────────────────────────────────────────────────────
+   Cool slate palette — blue-grey accents, stone neutrals
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --background: 250 14% 97%; /* near-white with cool tint */
+  --foreground: 220 20% 12%; /* deep blue-black */
+
+  --card: 0 0% 100%; /* pure white cards */
+  --card-foreground: 220 20% 12%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 12%;
+
+  /* Brand accent — slate blue */
+  --primary: 215 35% 28%; /* deep slate blue */
+  --primary-foreground: 210 40% 98%;
+
+  /* Secondary — cool stone */
+  --secondary: 214 20% 93%;
+  --secondary-foreground: 220 20% 20%;
+
+  /* Muted — cool grey */
+  --muted: 214 18% 94%;
+  --muted-foreground: 215 16% 47%;
+
+  /* Accent — soft slate */
+  --accent: 214 20% 91%;
+  --accent-foreground: 220 20% 15%;
+
+  /* Semantic */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+
+  /* Borders */
+  --border: 214 20% 88%;
+  --input: 214 20% 88%;
+  --ring: 215 35% 28%;
+
+  /* Radius — slightly tighter for a refined feel */
+  --radius: 0.2rem;
+
+  /* Chart colors — cool slate palette */
+  --chart-1: 215 70% 45%;
+  --chart-2: 195 60% 42%;
+  --chart-3: 230 55% 55%;
+  --chart-4: 200 50% 38%;
+  --chart-5: 245 45% 50%;
+}
+
+.dark {
+  --background: 222 24% 10%; /* deep blue-black */
+  --foreground: 214 28% 93%; /* cool off-white */
+
+  --card: 222 22% 13%; /* slightly lighter than bg */
+  --card-foreground: 214 28% 93%;
+
+  --popover: 222 22% 13%;
+  --popover-foreground: 214 28% 93%;
+
+  --primary: 213 60% 65%; /* lighter slate blue for dark mode */
+  --primary-foreground: 222 24% 10%;
+
+  --secondary: 222 18% 18%;
+  --secondary-foreground: 214 28% 80%;
+
+  --muted: 222 18% 17%;
+  --muted-foreground: 215 16% 55%;
+
+  --accent: 222 18% 20%;
+  --accent-foreground: 214 28% 90%;
+
+  --destructive: 0 63% 40%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 222 18% 20%;
+  --input: 222 18% 20%;
+  --ring: 213 60% 65%;
+
+  --sheet-border: 222 18% 13%;
+
+  --chart-1: 213 70% 60%;
+  --chart-2: 195 60% 55%;
+  --chart-3: 230 55% 65%;
+  --chart-4: 200 50% 52%;
+  --chart-5: 245 45% 62%;
+}
+
+/* ─── Base styles ────────────────────────────────────────────────────────────
+   Apply DM Sans globally with refined typographic defaults
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family:
+      'DM Sans',
+      system-ui,
+      -apple-system,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-size: 15px;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: -0.025em;
+    font-weight: 500;
+  }
+
+  * {
+    scroll-behavior: smooth;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--ring));
+  }
+
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+}
+
+/* ─── Custom utilities ───────────────────────────────────────────────────────
+   Reusable patterns across the app
+   ─────────────────────────────────────────────────────────────────────────── */
+@utility card-hover {
+  transition: all 200ms ease;
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+}
+
+@utility page-padding {
+  padding: 1rem;
+  @media (min-width: 640px) {
+    padding: 2rem;
+  }
+}
+
+@utility section-title {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@utility page-header {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: hsl(var(--foreground));
+  @media (min-width: 640px) {
+    font-size: 1.5rem;
+  }
+}
+
+@utility page-subheader {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  margin-top: 0.25rem;
+}
+
+/* ─── Gallery grid ───────────────────────────────────────────────────────────
+   Masonry layout for proofing gallery
+   ─────────────────────────────────────────────────────────────────────────── */
+.gallery-masonry {
+  columns: 2;
+  column-gap: 0.75rem;
+
+  @media (min-width: 640px) {
+    columns: 3;
+  }
+
+  @media (min-width: 1280px) {
+    columns: 4;
+  }
+
+  & > * {
+    break-inside: avoid;
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* ─── Photo card ─────────────────────────────────────────────────────────────
+   Hover effects for gallery images
+   ─────────────────────────────────────────────────────────────────────────── */
+.photo-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+
+  img {
+    display: block;
+    width: 100%;
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  &:hover img {
+    transform: scale(1.03);
+  }
+
+  .photo-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex;
+    align-items: flex-end;
+    padding: 0.75rem;
+  }
+
+  &:hover .photo-overlay {
+    opacity: 1;
+  }
+}
+
+/* ─── Page transitions ───────────────────────────────────────────────────────
+   Subtle fade-in when navigating between pages
+   ─────────────────────────────────────────────────────────────────────────── */
+.page-enter {
+  animation: page-in 0.2s ease-out;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Proofing toolbar ───────────────────────────────────────────────────────
+   Blur effect for gallery overlays
+   ─────────────────────────────────────────────────────────────────────────── */
+.proofing-toolbar {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ─── Scrollbar refinement ───────────────────────────────────────────────────
+   Subtle scrollbars that match the slate theme
+   ─────────────────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* ─── Selection color ────────────────────────────────────────────────────────
+   Brand-colored text selection
+   ─────────────────────────────────────────────────────────────────────────── */
+::selection {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--foreground));
+}
+
+button {
+  cursor: pointer;
 }

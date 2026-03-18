@@ -21,6 +21,8 @@ export const mockUpcomingBookings: Booking[] = [
     location: 'Loose Park, Kansas City',
     status: 'confirmed',
     depositPaid: true,
+    depositAmount: 800, // add this
+    contractSigned: true, // add this
     totalAmount: 2400,
   },
   {
@@ -32,6 +34,8 @@ export const mockUpcomingBookings: Booking[] = [
     location: 'River Market, KC',
     status: 'confirmed',
     depositPaid: true,
+    depositAmount: 200, // add this
+    contractSigned: true, // add this
     totalAmount: 850,
   },
   {
@@ -43,6 +47,8 @@ export const mockUpcomingBookings: Booking[] = [
     location: 'Shawnee Mission Park',
     status: 'pending',
     depositPaid: false,
+    depositAmount: 150, // add this
+    contractSigned: false, // add this
     totalAmount: 550,
   },
   {
@@ -54,6 +60,8 @@ export const mockUpcomingBookings: Booking[] = [
     location: 'Studio',
     status: 'confirmed',
     depositPaid: true,
+    depositAmount: 200, // add this
+    contractSigned: true, // add this
     totalAmount: 695,
   },
   {
@@ -65,6 +73,8 @@ export const mockUpcomingBookings: Booking[] = [
     location: 'Studio',
     status: 'confirmed',
     depositPaid: true,
+    depositAmount: 100, // add this
+    contractSigned: true, // add this
     totalAmount: 320,
   },
 ];
