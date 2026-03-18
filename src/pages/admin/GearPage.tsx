@@ -1,14 +1,23 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { mockGear } from '@/lib/mock-gear';
+import { useUser } from '@clerk/react';
+import { useSupabase } from '@/hooks/useSupabase';
+import {
+  fetchGear,
+  insertGearItem,
+  updateGearItem,
+  deleteGearItem,
+  markGearNeedsRepair,
+} from '@/lib/db/gear';
 import type { GearItem } from '@/types';
 import type { GearFormValues } from '@/lib/schemas/gear-schema';
 import { GearDialog } from '@/components/gear/GearDialog';
 import { DeleteGearDialog } from '@/components/gear/DeleteGearDialog';
 import { GearCard } from '@/components/gear/GearCard';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -16,8 +25,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { Plus, Search, LayoutList, Layers, Package } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  LayoutList,
+  Layers,
+  Package,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Wrench,
+} from 'lucide-react';
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -29,20 +55,15 @@ import { format } from 'date-fns';
 type CategoryFilter = 'all' | GearItem['category'];
 type ViewMode = 'grouped' | 'flat';
 
-function newId() {
-  return `g${crypto.randomUUID()}`;
+function LoadingSkeleton() {
+  return (
+    <div className='space-y-2'>
+      {[...Array(5)].map((_, i) => (
+        <Skeleton key={i} className='h-16 w-full rounded-xl' />
+      ))}
+    </div>
+  );
 }
-
-// ─── Desktop table row ────────────────────────────────────────────────────────
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, Wrench } from 'lucide-react';
 
 function GearRow({
   item,
@@ -180,16 +201,30 @@ function GearTable({
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export function GearPage() {
-  const [gear, setGear] = useState<GearItem[]>(mockGear);
+  const { user } = useUser();
+  const supabase = useSupabase();
+
+  const [gear, setGear] = useState<GearItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grouped');
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<GearItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<GearItem | null>(null);
+
+  // ─── Fetch ───────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchGear(supabase, user.id)
+      .then(setGear)
+      .catch((err) => toast.error('Failed to load gear: ' + err.message))
+      .finally(() => setIsLoading(false));
+  }, [user?.id, supabase]);
+
+  // ─── Derived ─────────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     let list = [...gear];
@@ -218,42 +253,65 @@ export function GearPage() {
     () => gear.reduce((sum, g) => sum + (g.insuranceValue ?? 0), 0),
     [gear],
   );
+
   const needsRepairCount = useMemo(
     () => gear.filter((g) => g.condition === 'needs-repair').length,
     [gear],
   );
 
-  function handleAdd(values: GearFormValues) {
-    const newItem: GearItem = { ...values, id: newId() };
-    setGear((prev) => [newItem, ...prev]);
-    setAddOpen(false);
-    toast.success(`${values.name} added`);
+  // ─── Handlers ────────────────────────────────────────────────────────────────
+
+  async function handleAdd(values: GearFormValues) {
+    if (!user?.id) return;
+    try {
+      const newItem = await insertGearItem(supabase, values, user.id);
+      setGear((prev) => [newItem, ...prev]);
+      setAddOpen(false);
+      toast.success(`${values.name} added`);
+    } catch (err: unknown) {
+      toast.error('Failed to add item: ' + (err as Error).message);
+    }
   }
 
-  function handleEdit(values: GearFormValues) {
+  async function handleEdit(values: GearFormValues) {
     if (!editItem) return;
-    setGear((prev) =>
-      prev.map((g) => (g.id === editItem.id ? { ...g, ...values } : g)),
-    );
-    setEditItem(null);
-    toast.success('Item updated');
+    try {
+      const updated = await updateGearItem(supabase, editItem.id, values);
+      setGear((prev) => prev.map((g) => (g.id === editItem.id ? updated : g)));
+      setEditItem(null);
+      toast.success('Item updated');
+    } catch (err: unknown) {
+      toast.error('Failed to update item: ' + (err as Error).message);
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deleteItem) return;
-    setGear((prev) => prev.filter((g) => g.id !== deleteItem.id));
-    toast.success(`${deleteItem.name} deleted`);
-    setDeleteItem(null);
+    try {
+      await deleteGearItem(supabase, deleteItem.id);
+      setGear((prev) => prev.filter((g) => g.id !== deleteItem.id));
+      toast.success(`${deleteItem.name} deleted`);
+      setDeleteItem(null);
+    } catch (err: unknown) {
+      toast.error('Failed to delete item: ' + (err as Error).message);
+    }
   }
 
-  function handleMarkRepair(item: GearItem) {
-    setGear((prev) =>
-      prev.map((g) =>
-        g.id === item.id ? { ...g, condition: 'needs-repair' } : g,
-      ),
-    );
-    toast.warning(`${item.name} marked as needs repair`);
+  async function handleMarkRepair(item: GearItem) {
+    try {
+      await markGearNeedsRepair(supabase, item.id);
+      setGear((prev) =>
+        prev.map((g) =>
+          g.id === item.id ? { ...g, condition: 'needs-repair' } : g,
+        ),
+      );
+      toast.warning(`${item.name} marked as needs repair`);
+    } catch (err: unknown) {
+      toast.error('Failed to update item: ' + (err as Error).message);
+    }
   }
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className='flex-1 p-4 sm:p-8 overflow-y-auto'>
@@ -265,19 +323,22 @@ export function GearPage() {
               Gear
             </h1>
             <p className='text-muted-foreground mt-1 text-sm'>
-              {gear.length} items · ${totalInsurance.toLocaleString()} insured
-              {needsRepairCount > 0 && (
-                <span className='text-red-500 ml-2'>
-                  · {needsRepairCount} needs repair
-                </span>
+              {isLoading ? (
+                'Loading…'
+              ) : (
+                <>
+                  {gear.length} items · ${totalInsurance.toLocaleString()}{' '}
+                  insured
+                  {needsRepairCount > 0 && (
+                    <span className='text-red-500 ml-2'>
+                      · {needsRepairCount} needs repair
+                    </span>
+                  )}
+                </>
               )}
             </p>
           </div>
-          <Button
-            onClick={() => setAddOpen(true)}
-            size='sm'
-            className='sm:size-default'
-          >
+          <Button onClick={() => setAddOpen(true)} size='sm'>
             <Plus className='w-4 h-4 sm:mr-2' />
             <span className='hidden sm:inline'>Add gear</span>
           </Button>
@@ -311,7 +372,6 @@ export function GearPage() {
                 ))}
               </SelectContent>
             </Select>
-            {/* View toggle — desktop only */}
             <div className='hidden sm:flex rounded-md border border-border overflow-hidden shrink-0'>
               <button
                 onClick={() => setViewMode('grouped')}
@@ -341,14 +401,24 @@ export function GearPage() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {/* Content */}
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : filtered.length === 0 ? (
           <div className='rounded-xl border border-border bg-card flex flex-col items-center justify-center py-16 text-center'>
             <Package className='w-8 h-8 text-muted-foreground/40 mb-3' />
-            <p className='text-sm font-medium text-foreground'>No gear found</p>
+            <p className='text-sm font-medium text-foreground'>
+              {gear.length === 0 ? 'No gear yet' : 'No gear found'}
+            </p>
+            <p className='text-xs text-muted-foreground mt-1'>
+              {gear.length === 0
+                ? 'Add your first item to get started'
+                : 'Try adjusting your search or filters'}
+            </p>
           </div>
         ) : (
           <>
-            {/* Mobile: card list */}
+            {/* Mobile cards */}
             <div className='sm:hidden space-y-2'>
               {filtered.map((item) => (
                 <GearCard
@@ -361,7 +431,7 @@ export function GearPage() {
               ))}
             </div>
 
-            {/* Desktop: table / grouped */}
+            {/* Desktop table / grouped */}
             <div className='hidden sm:block'>
               {viewMode === 'flat' ? (
                 <div className='rounded-xl border border-border bg-card overflow-hidden'>
@@ -405,7 +475,7 @@ export function GearPage() {
           </>
         )}
 
-        {filtered.length > 0 && (
+        {!isLoading && filtered.length > 0 && (
           <p className='text-xs text-muted-foreground text-right'>
             Showing {filtered.length} of {gear.length} items
           </p>

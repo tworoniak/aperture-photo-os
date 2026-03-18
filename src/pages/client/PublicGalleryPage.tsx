@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { format, isPast } from 'date-fns';
-import { mockGalleries } from '@/lib/mock-galleries';
+import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { fetchGalleryByToken, updateGalleryPhotos } from '@/lib/db/galleries';
 import type { Gallery, ProofPhoto, PhotoStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
   Check,
@@ -35,7 +38,7 @@ const STATUS_ICONS: Record<PhotoStatus, React.ReactNode> = {
   unreviewed: null,
 };
 
-// ─── Photo action bar ─────────────────────────────────────────────────────────
+// ─── Photo actions ────────────────────────────────────────────────────────────
 
 interface PhotoActionsProps {
   status: PhotoStatus;
@@ -114,8 +117,6 @@ function Lightbox({
 }: LightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [isSlideshow, setIsSlideshow] = useState(false);
-  //   const [commentInput, setCommentInput] = useState('');
-
   const [showComment, setShowComment] = useState(false);
 
   const photo = photos[index];
@@ -130,32 +131,33 @@ function Lightbox({
     [photos.length],
   );
 
-  // Keyboard navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'ArrowLeft') prev();
       if (e.key === 'ArrowRight') next();
       if (e.key === 'Escape') onClose();
-      if (e.key === 'a') onUpdatePhoto(photo.id, { status: 'approved' });
-      if (e.key === 'f') onUpdatePhoto(photo.id, { status: 'favourite' });
-      if (e.key === 'r') onUpdatePhoto(photo.id, { status: 'rejected' });
+      if (e.key === 'a')
+        onUpdatePhoto(photo.id, {
+          status: photo.status === 'approved' ? 'unreviewed' : 'approved',
+        });
+      if (e.key === 'f')
+        onUpdatePhoto(photo.id, {
+          status: photo.status === 'favourite' ? 'unreviewed' : 'favourite',
+        });
+      if (e.key === 'r')
+        onUpdatePhoto(photo.id, {
+          status: photo.status === 'rejected' ? 'unreviewed' : 'rejected',
+        });
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [photo.id, prev, next, onClose, onUpdatePhoto]);
+  }, [photo.id, photo.status, prev, next, onClose, onUpdatePhoto]);
 
-  // Slideshow
   useEffect(() => {
     if (!isSlideshow) return;
     const interval = setInterval(next, 3000);
     return () => clearInterval(interval);
   }, [isSlideshow, next]);
-
-  // Reset comment when photo changes
-  //   useEffect(() => {
-  //     setCommentInput(photo.clientComment ?? '');
-  //     setShowComment(false);
-  //   }, [index, photo.clientComment]);
 
   function submitComment() {
     if (!commentInput.trim()) return;
@@ -231,14 +233,12 @@ function Lightbox({
         >
           <ChevronLeft className='w-6 h-6 text-white' />
         </button>
-
         <img
           key={photo.id}
           src={photo.url}
           alt=''
           className='max-w-full max-h-full object-contain rounded-lg'
         />
-
         <button
           onClick={next}
           className='absolute right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors'
@@ -254,7 +254,7 @@ function Lightbox({
           className='px-6 py-4 border-t border-white/10 shrink-0'
         >
           <div className='max-w-lg mx-auto space-y-2'>
-            {photo.clientComment && !commentInput && (
+            {photo.clientComment && (
               <p className='text-sm text-white/70 italic'>
                 "{photo.clientComment}"
               </p>
@@ -314,11 +314,20 @@ type FilterMode = 'all' | PhotoStatus;
 
 export function PublicGalleryPage() {
   const { token } = useParams();
-  const [gallery, setGallery] = useState<Gallery | null>(
-    mockGalleries.find((g) => g.publicToken === token) ?? null,
-  );
+  const [gallery, setGallery] = useState<Gallery | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchGalleryByToken(supabase, token)
+      .then(setGallery)
+      .catch(() => setGallery(null))
+      .finally(() => setIsLoading(false));
+  }, [token]);
 
   const isExpired = gallery?.expiresAt
     ? isPast(new Date(gallery.expiresAt))
@@ -329,28 +338,84 @@ export function PublicGalleryPage() {
       filterMode === 'all' ? true : p.status === filterMode,
     ) ?? [];
 
-  function updatePhoto(id: string, patch: Partial<ProofPhoto>) {
-    setGallery((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        photos: prev.photos.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-      };
-    });
+  async function updatePhoto(id: string, patch: Partial<ProofPhoto>) {
+    if (!gallery) return;
+    const updatedPhotos = gallery.photos.map((p) =>
+      p.id === id ? { ...p, ...patch } : p,
+    );
+    setGallery((prev) => (prev ? { ...prev, photos: updatedPhotos } : prev));
+    try {
+      await updateGalleryPhotos(supabase, gallery.id, updatedPhotos);
+    } catch {
+      // Silently fail — local state is already updated
+    }
   }
 
-  function downloadSelected() {
+  async function downloadSelected() {
     const toDownload =
       gallery?.photos.filter(
         (p) => p.status === 'approved' || p.status === 'favourite',
       ) ?? [];
-    toDownload.forEach((photo) => {
-      const a = document.createElement('a');
-      a.href = photo.url;
-      a.download = `photo-${photo.id}.jpg`;
-      a.target = '_blank';
-      a.click();
-    });
+
+    if (toDownload.length === 0) return;
+
+    const cloudinaryPhotos = toDownload.filter((p) =>
+      p.url.includes('cloudinary.com'),
+    );
+
+    if (cloudinaryPhotos.length === 0) {
+      toast.error('No photos to download');
+      return;
+    }
+
+    setIsDownloading(true);
+    setDownloadProgress(0);
+
+    for (let i = 0; i < cloudinaryPhotos.length; i++) {
+      const photo = cloudinaryPhotos[i];
+      const downloadUrl = photo.url.replace(
+        '/upload/',
+        '/upload/fl_attachment/',
+      );
+
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `photo-${i + 1}.jpg`;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setDownloadProgress(i + 1);
+          resolve();
+        }, i * 1500);
+      });
+    }
+
+    setIsDownloading(false);
+    setDownloadProgress(0);
+    toast.success(
+      `${cloudinaryPhotos.length} photo${cloudinaryPhotos.length !== 1 ? 's' : ''} downloaded`,
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className='min-h-screen bg-background p-8'>
+        <div className='max-w-6xl mx-auto space-y-6'>
+          <Skeleton className='h-16 w-full' />
+          <div className='gallery-masonry'>
+            {[...Array(8)].map((_, i) => (
+              <Skeleton
+                key={i}
+                className='w-full aspect-square rounded-lg mb-3'
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!gallery) {
@@ -414,9 +479,7 @@ export function PublicGalleryPage() {
               )}
             </p>
           </div>
-
           <div className='flex items-center gap-3 flex-wrap'>
-            {/* Summary badges */}
             <div className='flex items-center gap-2'>
               {approved > 0 && (
                 <Badge
@@ -445,11 +508,17 @@ export function PublicGalleryPage() {
                 </Badge>
               )}
             </div>
-
             {approved + favourited > 0 && (
-              <Button size='sm' variant='outline' onClick={downloadSelected}>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={downloadSelected}
+                disabled={isDownloading}
+              >
                 <Download className='w-3.5 h-3.5 mr-2' />
-                Download approved
+                {isDownloading
+                  ? `Downloading ${downloadProgress}/${approved + favourited}…`
+                  : 'Download approved'}
               </Button>
             )}
           </div>
@@ -458,7 +527,7 @@ export function PublicGalleryPage() {
 
       {/* Filter bar */}
       <div className='border-b border-border px-6 py-3'>
-        <div className='max-w-6xl mx-auto flex items-center gap-2'>
+        <div className='max-w-6xl mx-auto flex items-center gap-2 flex-wrap'>
           <Filter className='w-3.5 h-3.5 text-muted-foreground' />
           {(
             ['all', 'unreviewed', 'approved', 'favourite', 'rejected'] as const
@@ -529,8 +598,6 @@ export function PublicGalleryPage() {
                     loading='lazy'
                     className='w-full block rounded-lg'
                   />
-
-                  {/* Status badge */}
                   {photo.status !== 'unreviewed' && (
                     <div
                       className={cn(
@@ -542,15 +609,11 @@ export function PublicGalleryPage() {
                       <span className='capitalize'>{photo.status}</span>
                     </div>
                   )}
-
-                  {/* Comment indicator */}
                   {photo.clientComment && (
                     <div className='absolute top-2 right-2 bg-black/60 rounded-full p-1'>
                       <MessageSquare className='w-3 h-3 text-white' />
                     </div>
                   )}
-
-                  {/* Hover overlay with quick actions */}
                   <div className='photo-overlay'>
                     <div
                       className='flex items-center gap-1.5'

@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { mockShoots } from '@/lib/mock-shoots';
-import { mockGear } from '@/lib/mock-gear';
-import type { Shoot, ShotItem, MoodBoardImage } from '@/types';
+import { useUser } from '@clerk/react';
+import { useSupabase } from '@/hooks/useSupabase';
+import { fetchShoot, updateShoot } from '@/lib/db/shoots';
+import { fetchGear } from '@/lib/db/gear';
+import type { Shoot, ShotItem, MoodBoardImage, GearItem } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -59,17 +62,16 @@ function ShotListSection({
   onChange: (items: ShotItem[]) => void;
 }) {
   const [newShot, setNewShot] = useState('');
+  const checked = items.filter((s) => s.checked).length;
 
   function addShot() {
     if (!newShot.trim()) return;
     onChange([
       ...items,
-      { id: `sl${crypto.randomUUID()}`, text: newShot.trim(), checked: false },
+      { id: crypto.randomUUID(), text: newShot.trim(), checked: false },
     ]);
     setNewShot('');
   }
-
-  const checked = items.filter((s) => s.checked).length;
 
   return (
     <Section icon={<CheckCircle2 className='w-4 h-4' />} title='Shot list'>
@@ -92,7 +94,7 @@ function ShotListSection({
                   ),
                 )
               }
-              className='shrink-0 text-muted-foreground hover:text-foreground transition-colors'
+              className='shrink-0 text-muted-foreground hover:text-foreground'
             >
               {shot.checked ? (
                 <CheckCircle2 className='w-4 h-4 text-emerald-500' />
@@ -155,7 +157,7 @@ function MoodBoardSection({
     onChange([
       ...images,
       {
-        id: `mb${crypto.randomUUID()}`,
+        id: crypto.randomUUID(),
         url: newUrl.trim(),
         caption: newCaption.trim() || undefined,
       },
@@ -281,9 +283,11 @@ function WeatherSection({
 
 function GearKitSection({
   gearKitIds,
+  gear,
   onChange,
 }: {
   gearKitIds: string[];
+  gear: GearItem[];
   onChange: (ids: string[]) => void;
 }) {
   function toggleGear(id: string) {
@@ -294,14 +298,21 @@ function GearKitSection({
     );
   }
 
-  const grouped = mockGear.reduce<Record<string, typeof mockGear>>(
-    (acc, item) => {
-      if (!acc[item.category]) acc[item.category] = [];
-      acc[item.category].push(item);
-      return acc;
-    },
-    {},
-  );
+  const grouped = gear.reduce<Record<string, GearItem[]>>((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+
+  if (gear.length === 0) {
+    return (
+      <Section icon={<Package className='w-4 h-4' />} title='Gear kit'>
+        <p className='text-sm text-muted-foreground'>
+          No gear in your inventory yet.
+        </p>
+      </Section>
+    );
+  }
 
   return (
     <Section icon={<Package className='w-4 h-4' />} title='Gear kit'>
@@ -368,9 +379,67 @@ function NotesSection({
 export function ShootDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [shoot, setShoot] = useState<Shoot | null>(
-    mockShoots.find((s) => s.id === id) ?? null,
-  );
+  const { user } = useUser();
+  const supabase = useSupabase();
+
+  const [shoot, setShoot] = useState<Shoot | null>(null);
+  const [gear, setGear] = useState<GearItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ─── Fetch shoot + gear ───────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!id || !user?.id) return;
+    Promise.all([fetchShoot(supabase, id), fetchGear(supabase, user.id)])
+      .then(([shootData, gearData]) => {
+        setShoot(shootData);
+        setGear(gearData);
+      })
+      .catch((err) => toast.error('Failed to load shoot: ' + err.message))
+      .finally(() => setIsLoading(false));
+  }, [id, user?.id, supabase]);
+
+  function update(patch: Partial<Shoot>) {
+    setShoot((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  async function handleSave() {
+    if (!shoot) return;
+    setIsSaving(true);
+    try {
+      const saved = await updateShoot(supabase, shoot.id, {
+        shotList: shoot.shotList,
+        moodBoard: shoot.moodBoard,
+        locationNotes: shoot.locationNotes,
+        gearKitIds: shoot.gearKitIds,
+        notes: shoot.notes,
+        status: shoot.status,
+      });
+      setShoot(saved);
+      toast.success('Shoot saved');
+    } catch (err: unknown) {
+      toast.error('Failed to save: ' + (err as Error).message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className='flex-1 p-8'>
+        <div className='max-w-5xl mx-auto space-y-4'>
+          <Skeleton className='h-10 w-64' />
+          <Skeleton className='h-2 w-full' />
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className='h-48 w-full rounded-xl' />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!shoot) {
     return (
@@ -387,10 +456,6 @@ export function ShootDetailPage() {
         </div>
       </div>
     );
-  }
-
-  function update(patch: Partial<Shoot>) {
-    setShoot((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
   const checkedCount = shoot.shotList.filter((s) => s.checked).length;
@@ -417,13 +482,10 @@ export function ShootDetailPage() {
             <div className='flex items-center gap-2 text-xs text-muted-foreground'>
               <span>{format(new Date(shoot.date), 'MMM d, yyyy')}</span>
               {shoot.location && (
-                <>
-                  <span className='hidden sm:inline'>·</span>
-                  <span className='hidden sm:flex items-center gap-1'>
-                    <MapPin className='w-3 h-3' />
-                    {shoot.location}
-                  </span>
-                </>
+                <span className='hidden sm:flex items-center gap-1'>
+                  · <MapPin className='w-3 h-3' />
+                  {shoot.location}
+                </span>
               )}
             </div>
           </div>
@@ -438,8 +500,8 @@ export function ShootDetailPage() {
           >
             {shoot.status}
           </Badge>
-          <Button size='sm' onClick={() => toast.success('Shoot saved')}>
-            Save
+          <Button size='sm' onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </div>
@@ -447,7 +509,6 @@ export function ShootDetailPage() {
       {/* Content */}
       <div className='p-4 sm:p-8'>
         <div className='max-w-5xl mx-auto'>
-          {/* Progress bar */}
           {totalCount > 0 && (
             <div className='mb-6 space-y-1.5'>
               <div className='flex justify-between text-xs text-muted-foreground'>
@@ -474,7 +535,6 @@ export function ShootDetailPage() {
 
           <Separator className='mb-6' />
 
-          {/* Single column on mobile, two column on desktop */}
           <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
             <div className='space-y-4'>
               <ShotListSection
@@ -495,6 +555,7 @@ export function ShootDetailPage() {
               />
               <GearKitSection
                 gearKitIds={shoot.gearKitIds}
+                gear={gear}
                 onChange={(gearKitIds) => update({ gearKitIds })}
               />
               <NotesSection

@@ -1,7 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { mockClients } from '@/lib/mock-clients';
+import { useUser } from '@clerk/react';
+import { useSupabase } from '@/hooks/useSupabase';
+import {
+  fetchClients,
+  insertClient,
+  updateClient,
+  deleteClient,
+} from '@/lib/db/clients';
 import type { Client } from '@/types';
 import type { ClientFormValues } from '@/lib/schemas/client-schema';
 import { ClientDialog } from '@/components/crm/ClientDialog';
@@ -26,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
   Plus,
@@ -54,20 +62,42 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function newId() {
-  return `c${crypto.randomUUID()}`;
+function LoadingSkeleton() {
+  return (
+    <div className='space-y-2'>
+      {[...Array(5)].map((_, i) => (
+        <Skeleton key={i} className='h-16 w-full rounded-xl' />
+      ))}
+    </div>
+  );
 }
 
 export function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const { user } = useUser();
+  const supabase = useSupabase();
+
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [addOpen, setAddOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
-  const [deleteClient, setDeleteClient] = useState<Client | null>(null);
+  const [deleteClient_, setDeleteClient] = useState<Client | null>(null);
   const [profileClient, setProfileClient] = useState<Client | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // ─── Fetch clients ───────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchClients(supabase, user.id)
+      .then(setClients)
+      .catch((err) => toast.error('Failed to load clients: ' + err.message))
+      .finally(() => setIsLoading(false));
+  }, [user?.id, supabase]);
+
+  // ─── Derived ─────────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     let list = [...clients];
@@ -105,34 +135,53 @@ export function ClientsPage() {
     [clients],
   );
 
-  function handleAdd(values: ClientFormValues) {
-    const newClient: Client = {
-      ...values,
-      id: newId(),
-      createdAt: new Date().toISOString().split('T')[0],
-      lastContact: new Date().toISOString().split('T')[0],
-      totalShoots: 0,
-      totalRevenue: 0,
-    };
-    setClients((prev) => [newClient, ...prev]);
-    setAddOpen(false);
-    toast.success(`${values.name} added`);
+  // ─── Handlers ────────────────────────────────────────────────────────────────
+
+  async function handleAdd(values: ClientFormValues) {
+    if (!user?.id) return;
+    try {
+      const newClient = await insertClient(
+        supabase,
+        {
+          ...values,
+          lastContact: new Date().toISOString().split('T')[0],
+          totalShoots: 0,
+          totalRevenue: 0,
+        },
+        user.id,
+      );
+      setClients((prev) => [newClient, ...prev]);
+      setAddOpen(false);
+      toast.success(`${values.name} added`);
+    } catch (err: unknown) {
+      toast.error('Failed to add client: ' + (err as Error).message);
+    }
   }
 
-  function handleEdit(values: ClientFormValues) {
+  async function handleEdit(values: ClientFormValues) {
     if (!editClient) return;
-    setClients((prev) =>
-      prev.map((c) => (c.id === editClient.id ? { ...c, ...values } : c)),
-    );
-    setEditClient(null);
-    toast.success('Client updated');
+    try {
+      const updated = await updateClient(supabase, editClient.id, values);
+      setClients((prev) =>
+        prev.map((c) => (c.id === editClient.id ? updated : c)),
+      );
+      setEditClient(null);
+      toast.success('Client updated');
+    } catch (err: unknown) {
+      toast.error('Failed to update client: ' + (err as Error).message);
+    }
   }
 
-  function handleDelete() {
-    if (!deleteClient) return;
-    setClients((prev) => prev.filter((c) => c.id !== deleteClient.id));
-    toast.success(`${deleteClient.name} deleted`);
-    setDeleteClient(null);
+  async function handleDelete() {
+    if (!deleteClient_) return;
+    try {
+      await deleteClient(supabase, deleteClient_.id);
+      setClients((prev) => prev.filter((c) => c.id !== deleteClient_.id));
+      toast.success(`${deleteClient_.name} deleted`);
+      setDeleteClient(null);
+    } catch (err: unknown) {
+      toast.error('Failed to delete client: ' + (err as Error).message);
+    }
   }
 
   function openProfile(client: Client) {
@@ -145,6 +194,8 @@ export function ClientsPage() {
     setEditClient(client);
   }
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className='flex-1 p-4 sm:p-8 overflow-y-auto'>
       <div className='max-w-6xl mx-auto space-y-5'>
@@ -155,14 +206,12 @@ export function ClientsPage() {
               Clients
             </h1>
             <p className='text-muted-foreground mt-1 text-sm'>
-              {counts.active} active · {counts.lead} leads · {counts.past} past
+              {isLoading
+                ? 'Loading…'
+                : `${counts.active} active · ${counts.lead} leads · ${counts.past} past`}
             </p>
           </div>
-          <Button
-            onClick={() => setAddOpen(true)}
-            size='sm'
-            className='sm:size-default'
-          >
+          <Button onClick={() => setAddOpen(true)} size='sm'>
             <Plus className='w-4 h-4 sm:mr-2' />
             <span className='hidden sm:inline'>Add client</span>
           </Button>
@@ -211,161 +260,178 @@ export function ClientsPage() {
           </div>
         </div>
 
-        {/* Mobile: card list */}
-        <div className='md:hidden space-y-2'>
-          {filtered.length === 0 ? (
-            <div className='flex flex-col items-center justify-center py-16 text-center rounded-xl border border-border'>
-              <UserRound className='w-8 h-8 text-muted-foreground/40 mb-3' />
-              <p className='text-sm font-medium text-foreground'>
-                No clients found
-              </p>
-            </div>
-          ) : (
-            filtered.map((client) => (
-              <ClientCard
-                key={client.id}
-                client={client}
-                onView={openProfile}
-                onEdit={openEdit}
-                onDelete={setDeleteClient}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Desktop: table */}
-        <div className='hidden md:block rounded-xl border border-border bg-card overflow-hidden'>
-          {filtered.length === 0 ? (
-            <div className='flex flex-col items-center justify-center py-16 text-center'>
-              <UserRound className='w-8 h-8 text-muted-foreground/40 mb-3' />
-              <p className='text-sm font-medium text-foreground'>
-                No clients found
-              </p>
-              <p className='text-xs text-muted-foreground mt-1'>
-                Try adjusting your search or filters
-              </p>
-            </div>
-          ) : (
-            <table className='w-full'>
-              <thead>
-                <tr className='border-b border-border bg-muted/30'>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
-                    Client
-                  </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
-                    Status
-                  </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell'>
-                    Shoots
-                  </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
-                    Revenue
-                  </th>
-                  <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden xl:table-cell'>
-                    Last contact
-                  </th>
-                  <th className='px-4 py-3 w-10' />
-                </tr>
-              </thead>
-              <tbody className='divide-y divide-border'>
-                {filtered.map((client) => (
-                  <tr
+        {/* Loading state */}
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : (
+          <>
+            {/* Mobile: card list */}
+            <div className='md:hidden space-y-2'>
+              {filtered.length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-16 text-center rounded-xl border border-border'>
+                  <UserRound className='w-8 h-8 text-muted-foreground/40 mb-3' />
+                  <p className='text-sm font-medium text-foreground'>
+                    No clients yet
+                  </p>
+                  <p className='text-xs text-muted-foreground mt-1'>
+                    Add your first client to get started
+                  </p>
+                </div>
+              ) : (
+                filtered.map((client) => (
+                  <ClientCard
                     key={client.id}
-                    className='hover:bg-muted/30 transition-colors cursor-pointer'
-                    onClick={() => openProfile(client)}
-                  >
-                    <td className='px-4 py-3'>
-                      <div className='flex items-center gap-3'>
-                        <Avatar className='w-8 h-8 shrink-0'>
-                          <AvatarFallback className='text-xs bg-muted text-muted-foreground'>
-                            {getInitials(client.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className='min-w-0'>
-                          <p className='text-sm font-medium text-foreground truncate'>
-                            {client.name}
-                          </p>
-                          <p className='text-xs text-muted-foreground truncate'>
-                            {client.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className='px-4 py-3'>
-                      <Badge
-                        variant='outline'
-                        className={cn(
-                          'text-xs capitalize',
-                          statusStyles[client.status],
-                        )}
-                      >
-                        {client.status}
-                      </Badge>
-                    </td>
-                    <td className='px-4 py-3 hidden lg:table-cell'>
-                      <span className='text-sm text-foreground'>
-                        {client.totalShoots}
-                      </span>
-                    </td>
-                    <td className='px-4 py-3'>
-                      <span className='text-sm text-foreground'>
-                        {client.totalRevenue > 0
-                          ? `$${client.totalRevenue.toLocaleString()}`
-                          : '—'}
-                      </span>
-                    </td>
-                    <td className='px-4 py-3 hidden xl:table-cell'>
-                      <span className='text-sm text-muted-foreground'>
-                        {client.lastContact
-                          ? format(new Date(client.lastContact), 'MMM d, yyyy')
-                          : '—'}
-                      </span>
-                    </td>
-                    <td
-                      className='px-4 py-3'
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            className='w-8 h-8 text-muted-foreground'
-                          >
-                            <MoreHorizontal className='w-4 h-4' />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
-                          <DropdownMenuItem onClick={() => openProfile(client)}>
-                            <UserRound className='w-4 h-4 mr-2' />
-                            View profile
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEdit(client)}>
-                            <Pencil className='w-4 h-4 mr-2' />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className='text-destructive focus:text-destructive'
-                            onClick={() => setDeleteClient(client)}
-                          >
-                            <Trash2 className='w-4 h-4 mr-2' />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                    client={client}
+                    onView={openProfile}
+                    onEdit={openEdit}
+                    onDelete={setDeleteClient}
+                  />
+                ))
+              )}
+            </div>
 
-        {filtered.length > 0 && (
-          <p className='text-xs text-muted-foreground text-right'>
-            Showing {filtered.length} of {clients.length} clients
-          </p>
+            {/* Desktop: table */}
+            <div className='hidden md:block rounded-xl border border-border bg-card overflow-hidden'>
+              {filtered.length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-16 text-center'>
+                  <UserRound className='w-8 h-8 text-muted-foreground/40 mb-3' />
+                  <p className='text-sm font-medium text-foreground'>
+                    No clients yet
+                  </p>
+                  <p className='text-xs text-muted-foreground mt-1'>
+                    Add your first client to get started
+                  </p>
+                </div>
+              ) : (
+                <table className='w-full'>
+                  <thead>
+                    <tr className='border-b border-border bg-muted/30'>
+                      <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
+                        Client
+                      </th>
+                      <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
+                        Status
+                      </th>
+                      <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell'>
+                        Shoots
+                      </th>
+                      <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3'>
+                        Revenue
+                      </th>
+                      <th className='text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden xl:table-cell'>
+                        Last contact
+                      </th>
+                      <th className='px-4 py-3 w-10' />
+                    </tr>
+                  </thead>
+                  <tbody className='divide-y divide-border'>
+                    {filtered.map((client) => (
+                      <tr
+                        key={client.id}
+                        className='hover:bg-muted/30 transition-colors cursor-pointer'
+                        onClick={() => openProfile(client)}
+                      >
+                        <td className='px-4 py-3'>
+                          <div className='flex items-center gap-3'>
+                            <Avatar className='w-8 h-8 shrink-0'>
+                              <AvatarFallback className='text-xs bg-muted text-muted-foreground'>
+                                {getInitials(client.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className='min-w-0'>
+                              <p className='text-sm font-medium text-foreground truncate'>
+                                {client.name}
+                              </p>
+                              <p className='text-xs text-muted-foreground truncate'>
+                                {client.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className='px-4 py-3'>
+                          <Badge
+                            variant='outline'
+                            className={cn(
+                              'text-xs capitalize',
+                              statusStyles[client.status],
+                            )}
+                          >
+                            {client.status}
+                          </Badge>
+                        </td>
+                        <td className='px-4 py-3 hidden lg:table-cell'>
+                          <span className='text-sm text-foreground'>
+                            {client.totalShoots}
+                          </span>
+                        </td>
+                        <td className='px-4 py-3'>
+                          <span className='text-sm text-foreground'>
+                            {client.totalRevenue > 0
+                              ? `$${client.totalRevenue.toLocaleString()}`
+                              : '—'}
+                          </span>
+                        </td>
+                        <td className='px-4 py-3 hidden xl:table-cell'>
+                          <span className='text-sm text-muted-foreground'>
+                            {client.lastContact
+                              ? format(
+                                  new Date(client.lastContact),
+                                  'MMM d, yyyy',
+                                )
+                              : '—'}
+                          </span>
+                        </td>
+                        <td
+                          className='px-4 py-3'
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                className='w-8 h-8 text-muted-foreground'
+                              >
+                                <MoreHorizontal className='w-4 h-4' />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align='end'>
+                              <DropdownMenuItem
+                                onClick={() => openProfile(client)}
+                              >
+                                <UserRound className='w-4 h-4 mr-2' />
+                                View profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openEdit(client)}
+                              >
+                                <Pencil className='w-4 h-4 mr-2' />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className='text-destructive focus:text-destructive'
+                                onClick={() => setDeleteClient(client)}
+                              >
+                                <Trash2 className='w-4 h-4 mr-2' />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {filtered.length > 0 && (
+              <p className='text-xs text-muted-foreground text-right'>
+                Showing {filtered.length} of {clients.length} clients
+              </p>
+            )}
+          </>
         )}
       </div>
 
@@ -383,8 +449,8 @@ export function ClientsPage() {
         onSubmit={handleEdit}
       />
       <DeleteClientDialog
-        client={deleteClient}
-        open={!!deleteClient}
+        client={deleteClient_}
+        open={!!deleteClient_}
         onOpenChange={(open) => {
           if (!open) setDeleteClient(null);
         }}

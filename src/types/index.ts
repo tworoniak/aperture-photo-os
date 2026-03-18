@@ -138,8 +138,8 @@ export interface ProofPhoto {
 
 export interface Gallery {
   id: string;
-  clientId: string;
-  shootId: string;
+  clientId?: string;
+  shootId?: string;
   title: string;
   photos: ProofPhoto[];
   expiresAt?: string;
