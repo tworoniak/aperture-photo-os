@@ -54,7 +54,7 @@ export function ClientProfileSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className='w-full sm:max-w-md overflow-y-auto'>
+      <SheetContent className='w-full sm:max-w-md overflow-y-auto px-6 py-6'>
         <SheetHeader className='mb-6'>
           <SheetTitle className='sr-only'>Client profile</SheetTitle>
         </SheetHeader>

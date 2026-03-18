@@ -50,29 +50,29 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className='flex-1 p-8 overflow-y-auto'>
-      <div className='max-w-6xl mx-auto space-y-8'>
+    <div className='flex-1 p-4 sm:p-8 overflow-y-auto'>
+      <div className='max-w-6xl mx-auto space-y-6'>
         {/* Header */}
         <div>
-          <h1 className='text-2xl font-semibold tracking-tight text-foreground'>
+          <h1 className='text-xl sm:text-2xl font-semibold tracking-tight text-foreground'>
             Good {getGreeting()}, {user?.name?.split(' ')[0] ?? 'there'}
           </h1>
-          <p className='text-muted-foreground mt-1'>
+          <p className='text-muted-foreground mt-1 text-sm'>
             Here's what's happening with your business.
           </p>
         </div>
 
-        {/* Stat cards */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4'>
+        {/* Stat cards — 2 col on mobile, 4 on xl */}
+        <div className='grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4'>
           {stats.map((s) => (
             <StatCard key={s.label} {...s} />
           ))}
         </div>
 
-        {/* Revenue chart — full width */}
+        {/* Revenue chart */}
         <RevenueChart />
 
-        {/* Bottom two panels */}
+        {/* Bottom two panels — stack on mobile */}
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
           <UpcomingBookings />
           <RecentClients />

@@ -46,7 +46,7 @@ export function ShootCard({ shoot, onEdit, onDelete }: ShootCardProps) {
 
   return (
     <div
-      className='rounded-xl border border-border bg-card p-5 flex flex-col gap-4 hover:border-border/80 transition-colors cursor-pointer'
+      className='rounded-xl border border-border bg-card p-5 flex flex-col gap-4 hover:border-border/80 card-hover cursor-pointer duration-300'
       onClick={() => navigate(`/shoots/${shoot.id}`)}
     >
       {/* Top row */}

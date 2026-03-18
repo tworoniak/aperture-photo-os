@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   MapPin,
   Plus,
-  //   Trash2,
   CheckCircle2,
   Circle,
   Image,
@@ -26,15 +25,11 @@ import {
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '@/lib/gear-helpers';
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
-
 const statusStyles: Record<Shoot['status'], string> = {
   planning: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
   ready: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   completed: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
 };
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
 
 function Section({
   icon,
@@ -46,7 +41,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className='rounded-xl border border-border bg-card p-5 space-y-4'>
+    <div className='rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4'>
       <div className='flex items-center gap-2'>
         <span className='text-muted-foreground'>{icon}</span>
         <h2 className='text-sm font-medium text-foreground'>{title}</h2>
@@ -55,8 +50,6 @@ function Section({
     </div>
   );
 }
-
-// ─── Shot list section ────────────────────────────────────────────────────────
 
 function ShotListSection({
   items,
@@ -71,19 +64,9 @@ function ShotListSection({
     if (!newShot.trim()) return;
     onChange([
       ...items,
-      { id: `sl${Date.now()}`, text: newShot.trim(), checked: false },
+      { id: `sl${crypto.randomUUID()}`, text: newShot.trim(), checked: false },
     ]);
     setNewShot('');
-  }
-
-  function toggleShot(id: string) {
-    onChange(
-      items.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s)),
-    );
-  }
-
-  function removeShot(id: string) {
-    onChange(items.filter((s) => s.id !== id));
   }
 
   const checked = items.filter((s) => s.checked).length;
@@ -91,7 +74,7 @@ function ShotListSection({
   return (
     <Section icon={<CheckCircle2 className='w-4 h-4' />} title='Shot list'>
       {items.length > 0 && (
-        <div className='text-xs text-muted-foreground mb-1'>
+        <div className='text-xs text-muted-foreground -mt-2'>
           {checked}/{items.length} completed
         </div>
       )}
@@ -102,7 +85,13 @@ function ShotListSection({
             className='flex items-center gap-3 group rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors'
           >
             <button
-              onClick={() => toggleShot(shot.id)}
+              onClick={() =>
+                onChange(
+                  items.map((s) =>
+                    s.id === shot.id ? { ...s, checked: !s.checked } : s,
+                  ),
+                )
+              }
               className='shrink-0 text-muted-foreground hover:text-foreground transition-colors'
             >
               {shot.checked ? (
@@ -122,7 +111,7 @@ function ShotListSection({
               {shot.text}
             </span>
             <button
-              onClick={() => removeShot(shot.id)}
+              onClick={() => onChange(items.filter((s) => s.id !== shot.id))}
               className='opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all'
             >
               <X className='w-3.5 h-3.5' />
@@ -151,8 +140,6 @@ function ShotListSection({
   );
 }
 
-// ─── Mood board section ───────────────────────────────────────────────────────
-
 function MoodBoardSection({
   images,
   onChange,
@@ -168,17 +155,13 @@ function MoodBoardSection({
     onChange([
       ...images,
       {
-        id: `mb${Date.now()}`,
+        id: `mb${crypto.randomUUID()}`,
         url: newUrl.trim(),
         caption: newCaption.trim() || undefined,
       },
     ]);
     setNewUrl('');
     setNewCaption('');
-  }
-
-  function removeImage(id: string) {
-    onChange(images.filter((img) => img.id !== id));
   }
 
   return (
@@ -192,11 +175,8 @@ function MoodBoardSection({
             >
               <img
                 src={img.url}
-                alt={img.caption ?? 'Mood board image'}
+                alt={img.caption ?? ''}
                 className='w-full h-full object-cover'
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
               />
               {img.caption && (
                 <div className='absolute bottom-0 inset-x-0 bg-black/50 px-2 py-1'>
@@ -204,7 +184,7 @@ function MoodBoardSection({
                 </div>
               )}
               <button
-                onClick={() => removeImage(img.id)}
+                onClick={() => onChange(images.filter((i) => i.id !== img.id))}
                 className='absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 bg-black/60 rounded-full p-1 transition-all'
               >
                 <X className='w-3 h-3 text-white' />
@@ -244,8 +224,6 @@ function MoodBoardSection({
   );
 }
 
-// ─── Location section ─────────────────────────────────────────────────────────
-
 function LocationSection({
   location,
   locationNotes,
@@ -261,7 +239,7 @@ function LocationSection({
         <p className='text-sm font-medium text-foreground'>{location}</p>
       )}
       <Textarea
-        placeholder='Location notes, parking, backup locations, directions…'
+        placeholder='Location notes, parking, backup locations…'
         value={locationNotes ?? ''}
         onChange={(e) => onNotesChange(e.target.value)}
         className='resize-none text-sm'
@@ -270,8 +248,6 @@ function LocationSection({
     </Section>
   );
 }
-
-// ─── Weather section ──────────────────────────────────────────────────────────
 
 function WeatherSection({
   date,
@@ -291,7 +267,7 @@ function WeatherSection({
           Weather integration coming soon.
         </p>
         <a
-          href={`https://forecast.weather.gov/`}
+          href='https://forecast.weather.gov/'
           target='_blank'
           rel='noopener noreferrer'
           className='text-xs text-blue-500 hover:underline'
@@ -303,8 +279,6 @@ function WeatherSection({
   );
 }
 
-// ─── Gear kit section ─────────────────────────────────────────────────────────
-
 function GearKitSection({
   gearKitIds,
   onChange,
@@ -313,11 +287,11 @@ function GearKitSection({
   onChange: (ids: string[]) => void;
 }) {
   function toggleGear(id: string) {
-    if (gearKitIds.includes(id)) {
-      onChange(gearKitIds.filter((g) => g !== id));
-    } else {
-      onChange([...gearKitIds, id]);
-    }
+    onChange(
+      gearKitIds.includes(id)
+        ? gearKitIds.filter((g) => g !== id)
+        : [...gearKitIds, id],
+    );
   }
 
   const grouped = mockGear.reduce<Record<string, typeof mockGear>>(
@@ -360,14 +334,6 @@ function GearKitSection({
                       <Circle className='w-4 h-4 shrink-0' />
                     )}
                     <span className='flex-1 truncate'>{item.name}</span>
-                    {item.condition === 'needs-repair' && (
-                      <Badge
-                        variant='outline'
-                        className='text-xs bg-red-500/10 text-red-600 border-red-500/20 shrink-0'
-                      >
-                        Needs repair
-                      </Badge>
-                    )}
                   </button>
                 );
               })}
@@ -378,8 +344,6 @@ function GearKitSection({
     </Section>
   );
 }
-
-// ─── Notes section ────────────────────────────────────────────────────────────
 
 function NotesSection({
   notes,
@@ -400,8 +364,6 @@ function NotesSection({
     </Section>
   );
 }
-
-// ─── Main detail page ─────────────────────────────────────────────────────────
 
 export function ShootDetailPage() {
   const { id } = useParams();
@@ -431,10 +393,6 @@ export function ShootDetailPage() {
     setShoot((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
-  function handleSave() {
-    toast.success('Shoot saved');
-  }
-
   const checkedCount = shoot.shotList.filter((s) => s.checked).length;
   const totalCount = shoot.shotList.length;
   const progress = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
@@ -442,8 +400,8 @@ export function ShootDetailPage() {
   return (
     <div className='flex-1 overflow-y-auto'>
       {/* Sticky header */}
-      <div className='sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-8 py-4 flex items-center justify-between gap-4'>
-        <div className='flex items-center gap-3 min-w-0'>
+      <div className='sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 sm:px-8 py-3 sm:py-4 flex items-center justify-between gap-4'>
+        <div className='flex items-center gap-2 sm:gap-3 min-w-0'>
           <Button
             variant='ghost'
             size='icon'
@@ -460,8 +418,8 @@ export function ShootDetailPage() {
               <span>{format(new Date(shoot.date), 'MMM d, yyyy')}</span>
               {shoot.location && (
                 <>
-                  <span>·</span>
-                  <span className='flex items-center gap-1'>
+                  <span className='hidden sm:inline'>·</span>
+                  <span className='hidden sm:flex items-center gap-1'>
                     <MapPin className='w-3 h-3' />
                     {shoot.location}
                   </span>
@@ -470,21 +428,24 @@ export function ShootDetailPage() {
             </div>
           </div>
         </div>
-        <div className='flex items-center gap-3 shrink-0'>
+        <div className='flex items-center gap-2 shrink-0'>
           <Badge
             variant='outline'
-            className={cn('text-xs capitalize', statusStyles[shoot.status])}
+            className={cn(
+              'text-xs capitalize hidden sm:flex',
+              statusStyles[shoot.status],
+            )}
           >
             {shoot.status}
           </Badge>
-          <Button size='sm' onClick={handleSave}>
+          <Button size='sm' onClick={() => toast.success('Shoot saved')}>
             Save
           </Button>
         </div>
       </div>
 
       {/* Content */}
-      <div className='p-8'>
+      <div className='p-4 sm:p-8'>
         <div className='max-w-5xl mx-auto'>
           {/* Progress bar */}
           {totalCount > 0 && (
@@ -513,9 +474,8 @@ export function ShootDetailPage() {
 
           <Separator className='mb-6' />
 
-          {/* Two column layout */}
+          {/* Single column on mobile, two column on desktop */}
           <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
-            {/* Left column */}
             <div className='space-y-4'>
               <ShotListSection
                 items={shoot.shotList}
@@ -528,8 +488,6 @@ export function ShootDetailPage() {
               />
               <WeatherSection date={shoot.date} location={shoot.location} />
             </div>
-
-            {/* Right column */}
             <div className='space-y-4'>
               <MoodBoardSection
                 images={shoot.moodBoard}
