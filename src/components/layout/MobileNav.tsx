@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { useClerk } from '@clerk/clerk-react';
+import { useClerk } from '@clerk/react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -26,7 +26,7 @@ export function MobileNav({ open, onOpenChange, navItems }: MobileNavProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side='left'
-        className='w-72 p-0 flex flex-col bg-white dark:bg-zinc-950'
+        className='w-72 p-0 flex flex-col bg-[hsl(var(--background))]'
       >
         {/* Brand */}
         <div className='h-14 flex items-center px-5 border-b border-border shrink-0'>

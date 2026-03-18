@@ -6,7 +6,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { useClerk } from '@clerk/clerk-react';
+import { useClerk } from '@clerk/react';
 import {
   ImageIcon,
   CalendarDays,
@@ -90,7 +90,7 @@ export function ClientLayout() {
       {/* Main */}
       <div className='flex-1 flex flex-col min-w-0'>
         {/* Mobile top bar */}
-        <header className='md:hidden sticky top-0 z-40 h-14 flex items-center justify-between px-4 border-b border-border bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0'>
+        <header className='md:hidden sticky top-0 z-40 h-14 flex items-center justify-between px-4 border-b border-border bg-[hsl(var(--background))] backdrop-blur-md shrink-0'>
           <span className='font-semibold tracking-tight text-foreground'>
             Your Photos
           </span>
@@ -113,7 +113,7 @@ export function ClientLayout() {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent
           side='left'
-          className='w-72 p-0 flex flex-col bg-white dark:bg-zinc-950'
+          className='w-72 p-0 flex flex-col bg-[hsl(var(--background))]'
         >
           <div className='h-14 flex items-center px-5 border-b border-border shrink-0'>
             <span className='font-semibold tracking-tight text-foreground'>
