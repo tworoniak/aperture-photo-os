@@ -5,6 +5,7 @@ export { BookingsPage } from '@/pages/admin/BookingsPage';
 export { ShootsPage } from '@/pages/admin/ShootsPage';
 export { GearPage } from '@/pages/admin/GearPage';
 export { PricingPage } from '@/pages/admin/PricingPage';
+export { GalleriesPage } from '@/pages/admin/GalleriesPage';
 
 // ─── Admin stubs (to be built out) ───────────────────────────────────────────
 
@@ -28,14 +29,14 @@ export { PricingPage } from '@/pages/admin/PricingPage';
 //   return <PageShell title='Pricing' description='Packages and quote builder' />;
 // }
 
-export function GalleriesPage() {
-  return (
-    <PageShell
-      title='Galleries'
-      description='Manage client proofing galleries'
-    />
-  );
-}
+// export function GalleriesPage() {
+//   return (
+//     <PageShell
+//       title='Galleries'
+//       description='Manage client proofing galleries'
+//     />
+//   );
+// }
 
 // ─── Client stubs ─────────────────────────────────────────────────────────────
 
