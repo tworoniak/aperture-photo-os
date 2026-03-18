@@ -1,11 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, isPast } from 'date-fns';
 import { toast } from 'sonner';
-import { mockGalleries } from '@/lib/mock-galleries';
+import { useUser } from '@clerk/react';
+import { useSupabase } from '@/hooks/useSupabase';
+import {
+  fetchGalleries,
+  insertGallery,
+  updateGalleryPhotos,
+  deleteGallery,
+} from '@/lib/db/galleries';
 import type { Gallery, ProofPhoto } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +29,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PhotoUploader } from '@/components/gallery/PhotoUploader';
+
 import { cn } from '@/lib/utils';
 import {
   Plus,
@@ -40,38 +50,24 @@ import {
 interface NewGalleryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (gallery: Omit<Gallery, 'id' | 'photos'>) => void;
+  onCreate: (data: { title: string; expiresAt?: string }) => void;
+  isCreating?: boolean;
 }
 
 function NewGalleryDialog({
   open,
   onOpenChange,
   onCreate,
+  isCreating,
 }: NewGalleryDialogProps) {
   const [title, setTitle] = useState('');
-  const [clientId, setClientId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
 
   function handleCreate() {
     if (!title.trim()) return;
-    const token =
-      title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '') +
-      '-' +
-      Date.now().toString(36);
-    onCreate({
-      clientId: clientId || 'unknown',
-      shootId: '',
-      title: title.trim(),
-      publicToken: token,
-      expiresAt: expiresAt || undefined,
-    });
+    onCreate({ title: title.trim(), expiresAt: expiresAt || undefined });
     setTitle('');
-    setClientId('');
     setExpiresAt('');
-    onOpenChange(false);
   }
 
   return (
@@ -92,6 +88,9 @@ function NewGalleryDialog({
               placeholder='Sarah Mitchell — Wedding'
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreate();
+              }}
             />
           </div>
           <div className='space-y-1.5'>
@@ -112,8 +111,8 @@ function NewGalleryDialog({
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={!title.trim()}>
-            Create gallery
+          <Button onClick={handleCreate} disabled={!title.trim() || isCreating}>
+            {isCreating ? 'Creating…' : 'Create gallery'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -127,7 +126,10 @@ interface AddPhotosDialogProps {
   gallery: Gallery | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (galleryId: string, urls: string[]) => void;
+  onAdd: (
+    galleryId: string,
+    photos: { url: string; thumbnailUrl: string }[],
+  ) => void;
 }
 
 function AddPhotosDialog({
@@ -136,44 +138,25 @@ function AddPhotosDialog({
   onOpenChange,
   onAdd,
 }: AddPhotosDialogProps) {
-  const [urls, setUrls] = useState('');
-
-  function handleAdd() {
-    if (!gallery) return;
-    const parsed = urls
-      .split('\n')
-      .map((u) => u.trim())
-      .filter(Boolean);
-    onAdd(gallery.id, parsed);
-    setUrls('');
-    onOpenChange(false);
-  }
+  if (!gallery) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-md'>
+      <DialogContent className='sm:max-w-lg max-h-[90vh] overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>Add photos</DialogTitle>
           <DialogDescription>
-            Paste image URLs — one per line.
+            Upload from your computer or add by URL.
           </DialogDescription>
         </DialogHeader>
-        <textarea
-          className='w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-foreground/20 min-h-32'
-          placeholder={
-            'https://images.unsplash.com/...\nhttps://images.unsplash.com/...'
-          }
-          value={urls}
-          onChange={(e) => setUrls(e.target.value)}
+        <PhotoUploader
+          galleryId={gallery.id}
+          onUploadComplete={(photos) => {
+            onAdd(gallery.id, photos);
+            onOpenChange(false);
+          }}
+          onCancel={() => onOpenChange(false)}
         />
-        <DialogFooter className='gap-2'>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleAdd} disabled={!urls.trim()}>
-            Add photos
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -207,8 +190,7 @@ function GalleryCard({
     : false;
 
   return (
-    <div className='rounded-xl border border-border bg-card p-5 flex flex-col gap-4 card-hover'>
-      {/* Header */}
+    <div className='rounded-xl border border-border bg-card p-5 flex flex-col gap-4'>
       <div className='flex items-start justify-between gap-3'>
         <div className='min-w-0'>
           <h3 className='text-sm font-medium text-foreground truncate'>
@@ -293,7 +275,7 @@ function GalleryCard({
             </div>
           ))}
           {gallery.photos.length > 4 && (
-            <div className='w-16 h-16 shrink-0 rounded-md bg-muted flex items-center justify-center'>
+            <div className='w-16 h-16 rounded-md bg-muted flex items-center justify-center'>
               <span className='text-xs text-muted-foreground font-medium'>
                 +{gallery.photos.length - 4}
               </span>
@@ -350,7 +332,6 @@ function GalleryCard({
         ))}
       </div>
 
-      {/* Copy link button */}
       <Button
         variant='outline'
         size='sm'
@@ -367,43 +348,104 @@ function GalleryCard({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function GalleriesPage() {
-  const [galleries, setGalleries] = useState<Gallery[]>(mockGalleries);
+  const { user } = useUser();
+  const supabase = useSupabase();
+
+  const [galleries, setGalleries] = useState<Gallery[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  // const [isAdding, setIsAdding] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [addPhotosTarget, setAddPhotosTarget] = useState<Gallery | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Gallery | null>(null);
 
-  function handleCreate(data: Omit<Gallery, 'id' | 'photos'>) {
-    const newGallery: Gallery = {
-      ...data,
-      id: `gal${crypto.randomUUID()}`,
-      photos: [],
-    };
-    setGalleries((prev) => [newGallery, ...prev]);
-    toast.success(`${data.title} created`);
+  // ─── Fetch ───────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchGalleries(supabase, user.id)
+      .then(setGalleries)
+      .catch((err) => toast.error('Failed to load galleries: ' + err.message))
+      .finally(() => setIsLoading(false));
+  }, [user?.id, supabase]);
+
+  // ─── Handlers ────────────────────────────────────────────────────────────────
+
+  async function handleCreate(data: { title: string; expiresAt?: string }) {
+    if (!user?.id) return;
+    setIsCreating(true);
+    try {
+      const token =
+        data.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '') +
+        '-' +
+        Date.now().toString(36);
+
+      const newGallery = await insertGallery(
+        supabase,
+        {
+          clientId: undefined,
+          shootId: undefined,
+          title: data.title,
+          publicToken: token,
+          expiresAt: data.expiresAt,
+          // photos: [],
+        },
+        user.id,
+      );
+
+      setGalleries((prev) => [newGallery, ...prev]);
+      setNewOpen(false);
+      toast.success(`${data.title} created`);
+    } catch (err: unknown) {
+      toast.error('Failed to create gallery: ' + (err as Error).message);
+    } finally {
+      setIsCreating(false);
+    }
   }
 
-  function handleAddPhotos(galleryId: string, urls: string[]) {
-    const newPhotos: ProofPhoto[] = urls.map((url) => ({
-      id: crypto.randomUUID(),
-      url,
-      thumbnailUrl: url.includes('?')
-        ? url.split('?')[0] + '?w=400'
-        : url + '?w=400',
-      status: 'unreviewed',
-    }));
-    setGalleries((prev) =>
-      prev.map((g) =>
-        g.id === galleryId ? { ...g, photos: [...g.photos, ...newPhotos] } : g,
-      ),
-    );
-    toast.success(`${urls.length} photo${urls.length !== 1 ? 's' : ''} added`);
+  async function handleAddPhotos(
+    galleryId: string,
+    photos: { url: string; thumbnailUrl: string }[],
+  ) {
+    const gallery = galleries.find((g) => g.id === galleryId);
+    if (!gallery) return;
+    try {
+      const newPhotos: ProofPhoto[] = photos.map((photo) => ({
+        id: crypto.randomUUID(),
+        url: photo.url,
+        thumbnailUrl: photo.thumbnailUrl,
+        status: 'unreviewed',
+      }));
+      const updatedPhotos = [...gallery.photos, ...newPhotos];
+      const updated = await updateGalleryPhotos(
+        supabase,
+        galleryId,
+        updatedPhotos,
+      );
+      setGalleries((prev) =>
+        prev.map((g) => (g.id === galleryId ? updated : g)),
+      );
+      toast.success(
+        `${photos.length} photo${photos.length !== 1 ? 's' : ''} added`,
+      );
+    } catch (err: unknown) {
+      toast.error('Failed to add photos: ' + (err as Error).message);
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deleteTarget) return;
-    setGalleries((prev) => prev.filter((g) => g.id !== deleteTarget.id));
-    toast.success('Gallery deleted');
-    setDeleteTarget(null);
+    try {
+      await deleteGallery(supabase, deleteTarget.id);
+      setGalleries((prev) => prev.filter((g) => g.id !== deleteTarget.id));
+      toast.success('Gallery deleted');
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      toast.error('Failed to delete gallery: ' + (err as Error).message);
+    }
   }
 
   function handleCopyLink(gallery: Gallery) {
@@ -412,27 +454,35 @@ export function GalleriesPage() {
     toast.success('Client link copied to clipboard');
   }
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
   return (
-    <div className='flex-1 p-8 overflow-y-auto'>
+    <div className='flex-1 p-4 sm:p-8 overflow-y-auto'>
       <div className='max-w-6xl mx-auto space-y-6'>
-        {/* Header */}
         <div className='flex items-start justify-between gap-4'>
           <div>
-            <h1 className='text-2xl font-semibold tracking-tight text-foreground'>
+            <h1 className='text-xl sm:text-2xl font-semibold tracking-tight text-foreground'>
               Galleries
             </h1>
-            <p className='text-muted-foreground mt-1'>
-              {galleries.length} proofing galleries
+            <p className='text-muted-foreground mt-1 text-sm'>
+              {isLoading
+                ? 'Loading…'
+                : `${galleries.length} proofing galleries`}
             </p>
           </div>
-          <Button onClick={() => setNewOpen(true)}>
-            <Plus className='w-4 h-4 mr-2' />
-            New gallery
+          <Button onClick={() => setNewOpen(true)} size='sm'>
+            <Plus className='w-4 h-4 sm:mr-2' />
+            <span className='hidden sm:inline'>New gallery</span>
           </Button>
         </div>
 
-        {/* Gallery grid */}
-        {galleries.length === 0 ? (
+        {isLoading ? (
+          <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className='h-64 w-full rounded-xl' />
+            ))}
+          </div>
+        ) : galleries.length === 0 ? (
           <div className='rounded-xl border border-dashed border-border flex flex-col items-center justify-center py-16 text-center'>
             <ImageIcon className='w-8 h-8 text-muted-foreground/40 mb-3' />
             <p className='text-sm font-medium text-foreground'>
@@ -461,6 +511,7 @@ export function GalleriesPage() {
         open={newOpen}
         onOpenChange={setNewOpen}
         onCreate={handleCreate}
+        isCreating={isCreating}
       />
 
       <AddPhotosDialog
@@ -470,6 +521,7 @@ export function GalleriesPage() {
           if (!open) setAddPhotosTarget(null);
         }}
         onAdd={handleAddPhotos}
+        // isAdding={isAdding}
       />
 
       <Dialog
