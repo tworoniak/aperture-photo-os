@@ -6,6 +6,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { ClientLayout } from '@/components/layout/ClientLayout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ShootDetailPage } from '@/pages/admin/ShootDetailPage';
+import { PublicGalleryPage } from '@/pages/client/PublicGalleryPage';
 
 import {
   // Admin
@@ -22,7 +23,7 @@ import {
   ClientContractsPage,
   ClientInvoicesPage,
   // Public
-  PublicGalleryPage,
+  // PublicGalleryPage,
   UnauthorizedPage,
   NotFoundPage,
 } from '@/pages';
@@ -58,6 +59,7 @@ export default function App() {
             <Route path='/my-bookings' element={<ClientBookingsPage />} />
             <Route path='/my-contracts' element={<ClientContractsPage />} />
             <Route path='/my-invoices' element={<ClientInvoicesPage />} />
+            <Route path='/gallery/:token' element={<PublicGalleryPage />} />
           </Route>
         </Route>
 
