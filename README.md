@@ -1,4 +1,4 @@
-# Aperture v1.0 - Photo Business OS
+# Apertur OS v1.0 - Photo Business Management
 
 A full-stack photography business management application built with React, TypeScript, and Tailwind CSS. Designed as a private, role-based web app for photographers to manage clients, bookings, shoots, gear, pricing, and client proofing galleries — all in one place.
 

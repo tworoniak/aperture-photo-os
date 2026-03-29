@@ -52,7 +52,7 @@ export function generateQuotePDF(quote: Quote, pkg: PricingPackage) {
 </head>
 <body>
   <div class="header">
-    <div class="brand">Aperture</div>
+    <div class="brand">Apertur</div>
     <div class="meta">
       Quote #${quote.id.slice(-6).toUpperCase()}<br/>
       ${date}<br/>
