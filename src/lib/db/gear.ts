@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GearItem } from '@/types';
+import { PAGE_SIZE } from '@/lib/constants';
 
 // ─── Type mapping ─────────────────────────────────────────────────────────────
 
@@ -36,15 +37,20 @@ function toRow(item: Partial<GearItem>, userId: string) {
 export async function fetchGear(
   supabase: SupabaseClient,
   userId: string,
-): Promise<GearItem[]> {
-  const { data, error } = await supabase
+  page = 0,
+): Promise<{ data: GearItem[]; count: number }> {
+  const from = page * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const { data, error, count } = await supabase
     .from('gear')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (error) throw error;
-  return (data ?? []).map(fromRow);
+  return { data: (data ?? []).map(fromRow), count: count ?? 0 };
 }
 
 export async function insertGearItem(

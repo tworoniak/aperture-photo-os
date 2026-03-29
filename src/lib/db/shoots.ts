@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Shoot, ShotItem, MoodBoardImage } from '@/types';
+import { PAGE_SIZE } from '@/lib/constants';
 
 // ─── Type mapping ─────────────────────────────────────────────────────────────
 
@@ -14,14 +15,24 @@ function fromRow(row: Record<string, unknown>): Shoot {
     locationNotes: row.location_notes as string | undefined,
     status: row.status as Shoot['status'],
     completedAt: row.completed_at as string | undefined,
-    shotList:
-      typeof row.shot_list === 'string'
-        ? JSON.parse(row.shot_list)
-        : ((row.shot_list as ShotItem[]) ?? []),
-    moodBoard:
-      typeof row.mood_board === 'string'
-        ? JSON.parse(row.mood_board)
-        : ((row.mood_board as MoodBoardImage[]) ?? []),
+    shotList: (() => {
+      try {
+        return typeof row.shot_list === 'string'
+          ? JSON.parse(row.shot_list)
+          : ((row.shot_list as ShotItem[]) ?? []);
+      } catch {
+        return [];
+      }
+    })(),
+    moodBoard: (() => {
+      try {
+        return typeof row.mood_board === 'string'
+          ? JSON.parse(row.mood_board)
+          : ((row.mood_board as MoodBoardImage[]) ?? []);
+      } catch {
+        return [];
+      }
+    })(),
     gearKitIds: (row.gear_kit_ids as string[]) ?? [],
     isStandalone: row.is_standalone as boolean,
     notes: row.notes as string | undefined,
@@ -52,15 +63,20 @@ function toRow(shoot: Partial<Shoot>, userId: string) {
 export async function fetchShoots(
   supabase: SupabaseClient,
   userId: string,
-): Promise<Shoot[]> {
-  const { data, error } = await supabase
+  page = 0,
+): Promise<{ data: Shoot[]; count: number }> {
+  const from = page * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const { data, error, count } = await supabase
     .from('shoots')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('user_id', userId)
-    .order('date', { ascending: true });
+    .order('date', { ascending: true })
+    .range(from, to);
 
   if (error) throw error;
-  return (data ?? []).map(fromRow);
+  return { data: (data ?? []).map(fromRow), count: count ?? 0 };
 }
 
 export async function fetchShoot(
@@ -113,9 +129,6 @@ export async function updateShoot(
     notes: shoot.notes ?? null,
   };
 
-  // console.log('Updating shoot:', id);
-  // console.log('Payload:', JSON.stringify(payload, null, 2));
-
   const { data, error } = await supabase
     .from('shoots')
     .update(payload)
@@ -124,7 +137,6 @@ export async function updateShoot(
     .single();
 
   if (error) throw error;
-  console.log('Response:', JSON.stringify(data, null, 2));
   return fromRow(data);
 }
 

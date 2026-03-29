@@ -43,7 +43,10 @@ import {
   Pencil,
   Trash2,
   Wrench,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { PAGE_SIZE } from '@/lib/constants';
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -213,16 +216,24 @@ export function GearPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<GearItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<GearItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // ─── Fetch ───────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchGear(supabase, user.id)
-      .then(setGear)
+    setIsLoading(true);
+    fetchGear(supabase, user.id, page)
+      .then(({ data, count }) => {
+        setGear(data);
+        setTotalCount(count);
+      })
       .catch((err) => toast.error('Failed to load gear: ' + err.message))
       .finally(() => setIsLoading(false));
-  }, [user?.id, supabase]);
+  }, [user?.id, supabase, page]);
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
@@ -263,6 +274,7 @@ export function GearPage() {
 
   async function handleAdd(values: GearFormValues) {
     if (!user?.id) return;
+    setIsSubmitting(true);
     try {
       const newItem = await insertGearItem(supabase, values, user.id);
       setGear((prev) => [newItem, ...prev]);
@@ -270,11 +282,14 @@ export function GearPage() {
       toast.success(`${values.name} added`);
     } catch (err: unknown) {
       toast.error('Failed to add item: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleEdit(values: GearFormValues) {
     if (!editItem) return;
+    setIsSubmitting(true);
     try {
       const updated = await updateGearItem(supabase, editItem.id, values);
       setGear((prev) => prev.map((g) => (g.id === editItem.id ? updated : g)));
@@ -282,11 +297,14 @@ export function GearPage() {
       toast.success('Item updated');
     } catch (err: unknown) {
       toast.error('Failed to update item: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete() {
     if (!deleteItem) return;
+    setIsDeleting(true);
     try {
       await deleteGearItem(supabase, deleteItem.id);
       setGear((prev) => prev.filter((g) => g.id !== deleteItem.id));
@@ -294,6 +312,8 @@ export function GearPage() {
       setDeleteItem(null);
     } catch (err: unknown) {
       toast.error('Failed to delete item: ' + (err as Error).message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -327,7 +347,7 @@ export function GearPage() {
                 'Loading…'
               ) : (
                 <>
-                  {gear.length} items · ${totalInsurance.toLocaleString()}{' '}
+                  {totalCount} items · ${totalInsurance.toLocaleString()}{' '}
                   insured
                   {needsRepairCount > 0 && (
                     <span className='text-red-500 ml-2'>
@@ -475,10 +495,23 @@ export function GearPage() {
           </>
         )}
 
-        {!isLoading && filtered.length > 0 && (
-          <p className='text-xs text-muted-foreground text-right'>
-            Showing {filtered.length} of {gear.length} items
-          </p>
+        {!isLoading && totalCount > 0 && (
+          <div className='flex items-center justify-between text-xs text-muted-foreground'>
+            <span>
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              {filtered.length < gear.length ? ` (${filtered.length} shown)` : ''}
+            </span>
+            {totalCount > PAGE_SIZE && (
+              <div className='flex gap-1.5'>
+                <Button size='sm' variant='outline' className='h-7 px-2' disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  <ChevronLeft className='w-3.5 h-3.5 mr-1' />Prev
+                </Button>
+                <Button size='sm' variant='outline' className='h-7 px-2' disabled={(page + 1) * PAGE_SIZE >= totalCount} onClick={() => setPage((p) => p + 1)}>
+                  Next<ChevronRight className='w-3.5 h-3.5 ml-1' />
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -486,6 +519,7 @@ export function GearPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         onSubmit={handleAdd}
+        isSubmitting={isSubmitting}
       />
       <GearDialog
         open={!!editItem}
@@ -494,6 +528,7 @@ export function GearPage() {
         }}
         item={editItem}
         onSubmit={handleEdit}
+        isSubmitting={isSubmitting}
       />
       <DeleteGearDialog
         item={deleteItem}
@@ -502,6 +537,7 @@ export function GearPage() {
           if (!open) setDeleteItem(null);
         }}
         onConfirm={handleDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );

@@ -379,7 +379,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Plus, Search, CalendarDays, LayoutList } from 'lucide-react';
+import { Plus, Search, CalendarDays, LayoutList, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PAGE_SIZE } from '@/lib/constants';
 
 type StatusFilter = 'all' | Booking['status'];
 type ViewMode = 'calendar' | 'list';
@@ -407,6 +408,10 @@ export function BookingsPage() {
   const [editBooking, setEditBooking] = useState<Booking | null>(null);
   const [deleteBooking_, setDeleteBooking] = useState<Booking | null>(null);
   const [linkBooking, setLinkBooking] = useState<Booking | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [shoots, setShoots] = useState<
     { id: string; title: string; date: string }[]
   >([]);
@@ -415,11 +420,15 @@ export function BookingsPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchBookings(supabase, user.id)
-      .then(setBookings)
+    setIsLoading(true);
+    fetchBookings(supabase, user.id, page)
+      .then(({ data, count }) => {
+        setBookings(data);
+        setTotalCount(count);
+      })
       .catch((err) => toast.error('Failed to load bookings: ' + err.message))
       .finally(() => setIsLoading(false));
-  }, [user?.id, supabase]);
+  }, [user?.id, supabase, page]);
 
   // ─── Fetch shoots for link dialog ─────────────────────────────────────────────
 
@@ -467,6 +476,7 @@ export function BookingsPage() {
 
   async function handleAdd(values: BookingFormValues) {
     if (!user?.id) return;
+    setIsSubmitting(true);
     try {
       const newBooking = await insertBooking(supabase, values, user.id);
       setBookings((prev) =>
@@ -476,11 +486,14 @@ export function BookingsPage() {
       toast.success(`Booking for ${values.clientName} added`);
     } catch (err: unknown) {
       toast.error('Failed to add booking: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleEdit(values: BookingFormValues) {
     if (!editBooking) return;
+    setIsSubmitting(true);
     try {
       const updated = await updateBooking(supabase, editBooking.id, values);
       setBookings((prev) =>
@@ -490,11 +503,14 @@ export function BookingsPage() {
       toast.success('Booking updated');
     } catch (err: unknown) {
       toast.error('Failed to update booking: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete() {
     if (!deleteBooking_) return;
+    setIsDeleting(true);
     try {
       await deleteBooking(supabase, deleteBooking_.id);
       setBookings((prev) => prev.filter((b) => b.id !== deleteBooking_.id));
@@ -502,6 +518,8 @@ export function BookingsPage() {
       setDeleteBooking(null);
     } catch (err: unknown) {
       toast.error('Failed to delete booking: ' + (err as Error).message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -686,10 +704,23 @@ export function BookingsPage() {
               )}
             </div>
 
-            {filtered.length > 0 && (
-              <p className='text-xs text-muted-foreground text-right'>
-                Showing {filtered.length} of {bookings.length} bookings
-              </p>
+            {totalCount > 0 && (
+              <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                <span>
+                  {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+                  {filtered.length < bookings.length ? ` (${filtered.length} shown)` : ''}
+                </span>
+                {totalCount > PAGE_SIZE && (
+                  <div className='flex gap-1.5'>
+                    <Button size='sm' variant='outline' className='h-7 px-2' disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                      <ChevronLeft className='w-3.5 h-3.5 mr-1' />Prev
+                    </Button>
+                    <Button size='sm' variant='outline' className='h-7 px-2' disabled={(page + 1) * PAGE_SIZE >= totalCount} onClick={() => setPage((p) => p + 1)}>
+                      Next<ChevronRight className='w-3.5 h-3.5 ml-1' />
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
@@ -699,6 +730,7 @@ export function BookingsPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         onSubmit={handleAdd}
+        isSubmitting={isSubmitting}
       />
       <BookingDialog
         open={!!editBooking}
@@ -707,6 +739,7 @@ export function BookingsPage() {
         }}
         booking={editBooking}
         onSubmit={handleEdit}
+        isSubmitting={isSubmitting}
       />
 
       <Dialog
@@ -727,11 +760,11 @@ export function BookingsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className='gap-2'>
-            <Button variant='outline' onClick={() => setDeleteBooking(null)}>
+            <Button variant='outline' onClick={() => setDeleteBooking(null)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button variant='destructive' onClick={handleDelete}>
-              Delete
+            <Button variant='destructive' onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

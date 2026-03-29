@@ -392,7 +392,7 @@ export function ShootDetailPage() {
   useEffect(() => {
     if (!id || !user?.id) return;
     Promise.all([fetchShoot(supabase, id), fetchGear(supabase, user.id)])
-      .then(([shootData, gearData]) => {
+      .then(([shootData, { data: gearData }]) => {
         setShoot(shootData);
         setGear(gearData);
       })

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Booking } from '@/types';
+import { PAGE_SIZE } from '@/lib/constants';
 
 // ─── Type mapping ─────────────────────────────────────────────────────────────
 
@@ -46,15 +47,20 @@ function toRow(booking: Partial<Booking>, userId: string) {
 export async function fetchBookings(
   supabase: SupabaseClient,
   userId: string,
-): Promise<Booking[]> {
-  const { data, error } = await supabase
+  page = 0,
+): Promise<{ data: Booking[]; count: number }> {
+  const from = page * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const { data, error, count } = await supabase
     .from('bookings')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('user_id', userId)
-    .order('date', { ascending: true });
+    .order('date', { ascending: true })
+    .range(from, to);
 
   if (error) throw error;
-  return (data ?? []).map(fromRow);
+  return { data: (data ?? []).map(fromRow), count: count ?? 0 };
 }
 
 export async function insertBooking(

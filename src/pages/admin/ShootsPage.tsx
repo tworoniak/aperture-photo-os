@@ -30,7 +30,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, Search, Camera } from 'lucide-react';
+import { Plus, Search, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PAGE_SIZE } from '@/lib/constants';
 
 type StatusFilter = 'all' | Shoot['status'];
 
@@ -55,16 +56,24 @@ export function ShootsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editShoot, setEditShoot] = useState<Shoot | null>(null);
   const [deleteShoot_, setDeleteShoot] = useState<Shoot | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // ─── Fetch ───────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchShoots(supabase, user.id)
-      .then(setShoots)
+    setIsLoading(true);
+    fetchShoots(supabase, user.id, page)
+      .then(({ data, count }) => {
+        setShoots(data);
+        setTotalCount(count);
+      })
       .catch((err) => toast.error('Failed to load shoots: ' + err.message))
       .finally(() => setIsLoading(false));
-  }, [user?.id, supabase]);
+  }, [user?.id, supabase, page]);
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
@@ -98,6 +107,7 @@ export function ShootsPage() {
 
   async function handleAdd(values: ShootFormValues) {
     if (!user?.id) return;
+    setIsSubmitting(true);
     try {
       const newShoot = await insertShoot(
         supabase,
@@ -117,11 +127,14 @@ export function ShootsPage() {
       toast.success(`${values.title} created`);
     } catch (err: unknown) {
       toast.error('Failed to create shoot: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleEdit(values: ShootFormValues) {
     if (!editShoot) return;
+    setIsSubmitting(true);
     try {
       const updated = await updateShoot(supabase, editShoot.id, {
         ...editShoot,
@@ -135,11 +148,14 @@ export function ShootsPage() {
       toast.success('Shoot updated');
     } catch (err: unknown) {
       toast.error('Failed to update shoot: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete() {
     if (!deleteShoot_) return;
+    setIsDeleting(true);
     try {
       await deleteShoot(supabase, deleteShoot_.id);
       setShoots((prev) => prev.filter((s) => s.id !== deleteShoot_.id));
@@ -147,6 +163,8 @@ export function ShootsPage() {
       setDeleteShoot(null);
     } catch (err: unknown) {
       toast.error('Failed to delete shoot: ' + (err as Error).message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -231,12 +249,32 @@ export function ShootsPage() {
             ))}
           </div>
         )}
+
+        {!isLoading && totalCount > 0 && (
+          <div className='flex items-center justify-between text-xs text-muted-foreground'>
+            <span>
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              {filtered.length < shoots.length ? ` (${filtered.length} shown)` : ''}
+            </span>
+            {totalCount > PAGE_SIZE && (
+              <div className='flex gap-1.5'>
+                <Button size='sm' variant='outline' className='h-7 px-2' disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  <ChevronLeft className='w-3.5 h-3.5 mr-1' />Prev
+                </Button>
+                <Button size='sm' variant='outline' className='h-7 px-2' disabled={(page + 1) * PAGE_SIZE >= totalCount} onClick={() => setPage((p) => p + 1)}>
+                  Next<ChevronRight className='w-3.5 h-3.5 ml-1' />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <ShootDialog
         open={addOpen}
         onOpenChange={setAddOpen}
         onSubmit={handleAdd}
+        isSubmitting={isSubmitting}
       />
       <ShootDialog
         key={editShoot?.id ?? 'edit'}
@@ -246,6 +284,7 @@ export function ShootsPage() {
         }}
         shoot={editShoot}
         onSubmit={handleEdit}
+        isSubmitting={isSubmitting}
       />
 
       <Dialog
@@ -266,11 +305,11 @@ export function ShootsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className='gap-2'>
-            <Button variant='outline' onClick={() => setDeleteShoot(null)}>
+            <Button variant='outline' onClick={() => setDeleteShoot(null)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button variant='destructive' onClick={handleDelete}>
-              Delete
+            <Button variant='destructive' onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
