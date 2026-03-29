@@ -42,7 +42,10 @@ import {
   Pencil,
   Trash2,
   UserRound,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { PAGE_SIZE } from '@/lib/constants';
 
 type StatusFilter = 'all' | Client['status'];
 type SortKey = 'name' | 'revenue' | 'lastContact' | 'createdAt';
@@ -86,16 +89,24 @@ export function ClientsPage() {
   const [deleteClient_, setDeleteClient] = useState<Client | null>(null);
   const [profileClient, setProfileClient] = useState<Client | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // ─── Fetch clients ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchClients(supabase, user.id)
-      .then(setClients)
+    setIsLoading(true);
+    fetchClients(supabase, user.id, page)
+      .then(({ data, count }) => {
+        setClients(data);
+        setTotalCount(count);
+      })
       .catch((err) => toast.error('Failed to load clients: ' + err.message))
       .finally(() => setIsLoading(false));
-  }, [user?.id, supabase]);
+  }, [user?.id, supabase, page]);
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
@@ -139,6 +150,7 @@ export function ClientsPage() {
 
   async function handleAdd(values: ClientFormValues) {
     if (!user?.id) return;
+    setIsSubmitting(true);
     try {
       const newClient = await insertClient(
         supabase,
@@ -155,11 +167,14 @@ export function ClientsPage() {
       toast.success(`${values.name} added`);
     } catch (err: unknown) {
       toast.error('Failed to add client: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleEdit(values: ClientFormValues) {
     if (!editClient) return;
+    setIsSubmitting(true);
     try {
       const updated = await updateClient(supabase, editClient.id, values);
       setClients((prev) =>
@@ -169,11 +184,14 @@ export function ClientsPage() {
       toast.success('Client updated');
     } catch (err: unknown) {
       toast.error('Failed to update client: ' + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete() {
     if (!deleteClient_) return;
+    setIsDeleting(true);
     try {
       await deleteClient(supabase, deleteClient_.id);
       setClients((prev) => prev.filter((c) => c.id !== deleteClient_.id));
@@ -181,6 +199,8 @@ export function ClientsPage() {
       setDeleteClient(null);
     } catch (err: unknown) {
       toast.error('Failed to delete client: ' + (err as Error).message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -206,9 +226,7 @@ export function ClientsPage() {
               Clients
             </h1>
             <p className='text-muted-foreground mt-1 text-sm'>
-              {isLoading
-                ? 'Loading…'
-                : `${counts.active} active · ${counts.lead} leads · ${counts.past} past`}
+              {isLoading ? 'Loading…' : `${totalCount} clients`}
             </p>
           </div>
           <Button onClick={() => setAddOpen(true)} size='sm'>
@@ -426,10 +444,23 @@ export function ClientsPage() {
               )}
             </div>
 
-            {filtered.length > 0 && (
-              <p className='text-xs text-muted-foreground text-right'>
-                Showing {filtered.length} of {clients.length} clients
-              </p>
+            {totalCount > 0 && (
+              <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                <span>
+                  {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+                  {filtered.length < clients.length ? ` (${filtered.length} shown)` : ''}
+                </span>
+                {totalCount > PAGE_SIZE && (
+                  <div className='flex gap-1.5'>
+                    <Button size='sm' variant='outline' className='h-7 px-2' disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                      <ChevronLeft className='w-3.5 h-3.5 mr-1' />Prev
+                    </Button>
+                    <Button size='sm' variant='outline' className='h-7 px-2' disabled={(page + 1) * PAGE_SIZE >= totalCount} onClick={() => setPage((p) => p + 1)}>
+                      Next<ChevronRight className='w-3.5 h-3.5 ml-1' />
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
@@ -439,6 +470,7 @@ export function ClientsPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         onSubmit={handleAdd}
+        isSubmitting={isSubmitting}
       />
       <ClientDialog
         open={!!editClient}
@@ -447,6 +479,7 @@ export function ClientsPage() {
         }}
         client={editClient}
         onSubmit={handleEdit}
+        isSubmitting={isSubmitting}
       />
       <DeleteClientDialog
         client={deleteClient_}
@@ -455,6 +488,7 @@ export function ClientsPage() {
           if (!open) setDeleteClient(null);
         }}
         onConfirm={handleDelete}
+        isDeleting={isDeleting}
       />
       <ClientProfileSheet
         client={profileClient}

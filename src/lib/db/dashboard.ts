@@ -150,30 +150,34 @@ export async function fetchRevenueChart(
   userId: string
 ): Promise<RevenueChartPoint[]> {
   const now = new Date()
-  const points: RevenueChartPoint[] = []
+  const sixMonthsAgo = startOfMonth(subMonths(now, 5)).toISOString().split("T")[0]
+  const thisMonthEnd  = endOfMonth(now).toISOString().split("T")[0]
 
-  for (let i = 5; i >= 0; i--) {
-    const month      = subMonths(now, i)
-    const monthStart = startOfMonth(month).toISOString().split("T")[0]
-    const monthEnd   = endOfMonth(month).toISOString().split("T")[0]
-    const label      = format(month, "MMM")
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("date, total_amount")
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .gte("date", sixMonthsAgo)
+    .lte("date", thisMonthEnd)
 
-    const { data } = await supabase
-      .from("bookings")
-      .select("total_amount")
-      .eq("user_id", userId)
-      .eq("status", "completed")
-      .gte("date", monthStart)
-      .lte("date", monthEnd)
+  if (error) throw error
 
-    const revenue = (data ?? []).reduce(
-      (sum, b) => sum + (b.total_amount ?? 0), 0
-    )
-
-    points.push({ month: label, revenue })
+  // Group by year-month key so months never collide across years
+  const revenueByKey: Record<string, number> = {}
+  for (const row of data ?? []) {
+    const key = format(new Date(row.date), "yyyy-MM")
+    revenueByKey[key] = (revenueByKey[key] ?? 0) + (row.total_amount ?? 0)
   }
 
-  return points
+  // Build all 6 points in chronological order, filling gaps with 0
+  return Array.from({ length: 6 }, (_, i) => {
+    const month = subMonths(now, 5 - i)
+    return {
+      month:   format(month, "MMM"),
+      revenue: revenueByKey[format(month, "yyyy-MM")] ?? 0,
+    }
+  })
 }
 
 // ─── Upcoming bookings ────────────────────────────────────────────────────────

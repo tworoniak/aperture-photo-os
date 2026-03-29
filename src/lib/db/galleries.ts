@@ -4,10 +4,15 @@ import type { Gallery, ProofPhoto } from '@/types';
 // ─── Type mapping ─────────────────────────────────────────────────────────────
 
 function fromRow(row: Record<string, unknown>): Gallery {
-  const photos =
-    typeof row.photos === 'string'
-      ? JSON.parse(row.photos)
-      : ((row.photos as ProofPhoto[]) ?? []);
+  let photos: ProofPhoto[] = [];
+  try {
+    photos =
+      typeof row.photos === 'string'
+        ? JSON.parse(row.photos)
+        : ((row.photos as ProofPhoto[]) ?? []);
+  } catch {
+    photos = [];
+  }
 
   return {
     id: row.id as string,
@@ -59,6 +64,7 @@ export async function fetchGalleryByToken(
     .single();
 
   if (error) return null;
+  if (data.expires_at && new Date(data.expires_at) < new Date()) return null;
   return fromRow(data);
 }
 
