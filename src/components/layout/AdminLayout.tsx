@@ -22,8 +22,9 @@ export function AdminLayout() {
       <aside className='hidden md:flex w-56 shrink-0 border-r border-border flex-col'>
         {/* Brand */}
         <div className='h-14 flex items-center px-5 border-b border-border'>
-          <span className='font-semibold text-sm tracking-[0.15em] uppercase text-foreground'>
-            Aperture
+          <span className='font-semibold text-sm tracking-[0.15em] uppercase text-(--color-ink-black-400)'>
+            {/* Aperture */}
+            Apertur OS
           </span>
         </div>
 
@@ -92,9 +93,9 @@ export function AdminLayout() {
       {/* ── Main content ──────────────────────────────────────────────────── */}
       <div className='flex-1 flex flex-col min-w-0'>
         {/* Mobile top bar */}
-        <header className='md:hidden sticky top-0 z-40 h-14 flex items-center justify-between px-4 border-b border-border bg-[hsl(var(--background))] backdrop-blur-md shrink-0'>
+        <header className='md:hidden sticky top-0 z-40 h-14 flex items-center justify-between px-4 border-b border-border bg-background backdrop-blur-md shrink-0'>
           <span className='font-semibold text-sm tracking-[0.15em] uppercase text-foreground'>
-            Aperture
+            Apertur OS
           </span>
           <div className='flex items-center gap-1'>
             <Button
