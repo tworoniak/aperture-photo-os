@@ -47,6 +47,7 @@ export function PricingPage() {
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<PricingPackage | null>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
@@ -120,6 +121,7 @@ export function PricingPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
       await deletePackage(supabase, deleteTarget.id);
       setPackages((prev) => prev.filter((p) => p.id !== deleteTarget.id));
@@ -128,6 +130,8 @@ export function PricingPage() {
       setDeleteTarget(null);
     } catch (err: unknown) {
       toast.error('Failed to delete package: ' + (err as Error).message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -297,11 +301,11 @@ export function PricingPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className='gap-2'>
-            <Button variant='outline' onClick={() => setDeleteTarget(null)}>
+            <Button variant='outline' onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button variant='destructive' onClick={handleDelete}>
-              Delete
+            <Button variant='destructive' onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -18,7 +18,6 @@ export async function uploadToCloudinary(
   formData.append('upload_preset', UPLOAD_PRESET);
   formData.append('folder', `aperture/galleries/${galleryId}`);
 
-  console.log('galleryId:', galleryId);
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
     { method: 'POST', body: formData },

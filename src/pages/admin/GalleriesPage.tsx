@@ -354,6 +354,7 @@ export function GalleriesPage() {
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   // const [isAdding, setIsAdding] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [addPhotosTarget, setAddPhotosTarget] = useState<Gallery | null>(null);
@@ -438,6 +439,7 @@ export function GalleriesPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
       await deleteGallery(supabase, deleteTarget.id);
       setGalleries((prev) => prev.filter((g) => g.id !== deleteTarget.id));
@@ -445,6 +447,8 @@ export function GalleriesPage() {
       setDeleteTarget(null);
     } catch (err: unknown) {
       toast.error('Failed to delete gallery: ' + (err as Error).message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -542,11 +546,11 @@ export function GalleriesPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className='gap-2'>
-            <Button variant='outline' onClick={() => setDeleteTarget(null)}>
+            <Button variant='outline' onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button variant='destructive' onClick={handleDelete}>
-              Delete
+            <Button variant='destructive' onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
